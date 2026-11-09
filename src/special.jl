@@ -7,3 +7,4 @@ _erfc(x::Union{Float32, Float64}) = erfc(x)
 function _erfc(x)
     throw(ArgumentError("erfc($(typeof(x))) needs `using SpecialFunctions`"))
 end
+_besselkx(ν, x) = throw(ArgumentError("besselkx needs `using SpecialFunctions`"))

@@ -10,6 +10,7 @@ PP.si_velocity(v::AbstractQuantity) = ustrip(u"m/s", v)
 PP.si_frequency(ω::AbstractQuantity) = ustrip(u"s^-1", ω)
 PP.si_charge(q::AbstractQuantity) = ustrip(u"C", q)
 PP.si_mass(m::AbstractQuantity) = ustrip(u"kg", m)
+PP.si_phase_space_density(f::AbstractArray{<:AbstractQuantity}) = ustrip.(u"s^3/m^6", f)
 
 # A temperature carries no energy dimension until multiplied by k_B
 PP.si_energy(T::AbstractQuantity) =

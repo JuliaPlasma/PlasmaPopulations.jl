@@ -157,3 +157,37 @@ end
 
     @test_throws ArgumentError BiMaxwellian(p; T_perp = Tperp)
 end
+
+@testset "GridVDF tabulates a gyrotropic distribution" begin
+    m = BiMaxwellian(; vth_perp = 1.3, vth_para = 0.7, vd_para = 0.4)
+    v_perp, v_para = range(0, 8, 321), range(-5, 5, 401)
+    F = [3.0 * pdf(m, v, u) for v in v_perp, u in v_para]
+    g = GridVDF(v_perp, v_para, F)
+    @test g.n ≈ 3 rtol = 1e-3
+    @test mean(g) ≈ mean(m) atol = 1e-4
+    @test all(isapprox.(vth_perp_para(g), vth_perp_para(m); rtol = 1e-3))
+    @test pdf(g, v_perp[5], v_para[7]) ≈ F[5, 7] / g.n
+    @test pdf(g, -(v_perp[5] + v_perp[6]) / 2, v_para[7]) ≈ (F[5, 7] + F[6, 7]) / 2g.n
+    @test pdf(g, 1.0, 6.0) == 0
+    # density of the interpolant: exact for f linear in v⊥ and v∥
+    lin = GridVDF([0.0, 2.0], [-1.0, 1.0], [1.0 1.0; 3.0 3.0])
+    @test lin.n ≈ 2π * 2 * (2 + 8 / 3)
+    @test GridVDF(v_perp .* u"m/s", v_para .* u"m/s", F .* u"s^3/cm^6").n ≈ 3e12 rtol = 1e-3
+    @test_throws DimensionMismatch GridVDF(v_perp, v_para, F')
+    @test_throws ArgumentError GridVDF(reverse(v_perp), v_para, F)
+    @test_throws DomainError GridVDF(v_perp .- 1, v_para, F)
+end
+
+@testset "MaxwellJuttner" begin
+    c = PlasmaPopulations.C_SI
+    radial(d, g) = quadgk(u -> 4π * u^2 * g(u) * pdf(d, u, 0.0), 0, Inf; rtol = 1e-10)[1]
+    for θ in (1e-3, 0.5, 5.0)
+        d = MaxwellJuttner(; theta = θ)
+        @test radial(d, one) ≈ 1 rtol = 1e-8
+        @test radial(d, abs2) ≈ sum(abs2, vth_perp_para(d)) * 3 / 4 rtol = 1e-8   # ⟨u²⟩ = 3⟨u_z²⟩
+    end
+    nr = MaxwellJuttner(; theta = 1e-6)
+    @test pdf(nr, 0.3c * 1e-3, 0.2c * 1e-3) ≈ pdf(BiMaxwellian(; vth = c * sqrt(2e-6)), 0.3c * 1e-3, 0.2c * 1e-3) rtol = 1e-4
+    @test MaxwellJuttner(Electron(); T = 511u"keV").theta ≈ 1 rtol = 1e-3
+    @test_throws DomainError MaxwellJuttner(; theta = 0)
+end

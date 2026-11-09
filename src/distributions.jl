@@ -243,9 +243,38 @@ Cold(::Particle; kw...) = Cold(; kw...)
 vth_perp_para(d::Cold) = (zero(d.vd_para), zero(d.vd_para))
 Random.rand(::AbstractRNG, d::Cold) = mean(d)
 
-isgyrotropic(::Type{<:Union{BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, Cold}}) = true
-Statistics.mean(d::Union{BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, Cold}) = SVector(zero(d.vd_para), zero(d.vd_para), d.vd_para)
+struct MaxwellJuttner{T} <: AbstractVDF
+    theta::T
+    function MaxwellJuttner(theta)
+        theta > 0 || throw(DomainError(theta, "MaxwellJuttner needs theta > 0"))
+        return new{typeof(theta)}(theta)
+    end
+end
+MaxwellJuttner(; theta) = MaxwellJuttner(theta)
+MaxwellJuttner(p::Particle; T) = MaxwellJuttner(si_energy(T) / (p.m * C_SI^2))
+
+# K₂, K₃ scaled by exp(1/θ), which cancels between the normalization and exp(-γ/θ) = exp(-(γ - 1)/θ) exp(-1/θ).
+function _pdf(d::MaxwellJuttner, v_perp, v_para)
+    θ = float(d.theta)
+    c = convert(typeof(θ), C_SI)
+    x = (v_perp^2 + v_para^2) / c^2
+    return exp(-x / (1 + sqrt(1 + x)) / θ) / (4 * oftype(θ, π) * c^3 * θ * _besselkx(2, 1 / θ))
+end
+
+# ⟨u_i²⟩ = c²θ K₃(1/θ)/K₂(1/θ)
+function vth_perp_para(d::MaxwellJuttner)
+    θ = float(d.theta)
+    v = convert(typeof(θ), C_SI) * sqrt(2θ * _besselkx(3, 1 / θ) / _besselkx(2, 1 / θ))
+    return (v, v)
+end
+
+Statistics.mean(d::MaxwellJuttner) = zero(SVector{3, typeof(float(d.theta))})
+
+const _FieldAligned = Union{BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, Cold}
+isgyrotropic(::Type{<:Union{_FieldAligned, MaxwellJuttner}}) = true
+Statistics.mean(d::_FieldAligned) = _mean_para(d.vd_para)
 vth_perp_para(d::Union{BiMaxwellian, BiKappa, ProductBiKappa}) = (d.vth_perp, d.vth_para)
+_mean_para(vd) = SVector(zero(vd), zero(vd), vd)
 
 # Marsaglia & Tsang (2000) Gamma(α, 1) sampler, α ≥ 1
 function _rand_gamma(rng::AbstractRNG, α::T) where {T}
