@@ -59,3 +59,8 @@ rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-align
 | `inertial_length(particle, n)` | $c/ω_p$ [m] |
 | `debye_length(particle, n, T)` | $\sqrt{ε₀T/(n q²)}$ [m] |
 | `mass_density(plasma)`, `alfven_speed(plasma)` | total `Σ nm` [kg/m³], `\|B₀\|/√(μ₀ρ)` with `ρ` over charged populations [m/s] |
+
+## Related
+
+- [VelocityDistributionFunctions.jl](https://github.com/JuliaSpacePhysics/VelocityDistributionFunctions.jl): analysis of measured VDFs (pitch-angle distributions, spectra, moments); models here are analytic or tabulated distributions, not instrument data.
+- [PlasmaSpecies.jl](https://github.com/jqfeld/PlasmaSpecies.jl): plasma-chemistry species and reaction bookkeeping (charge, excited states, reactions), no velocity distributions.
