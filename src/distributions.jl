@@ -125,7 +125,7 @@ end
     BiKappa(; vth, kappa, vd_para = 0)
     BiKappa(; vth_perp, vth_para, kappa, vd_para = 0)
 
-Coupled bi-kappa, `κ > 3/2`.
+Coupled bi-kappa, `κ > 3/2`, with κ-independent temperatures.
 
     f ∝ (1 + v⊥²/A⊥ + (v∥ - vd_para)²/A∥)^{-(κ+1)},   A = (κ - 3/2)·vth²
 """
@@ -165,7 +165,7 @@ end
     ProductBiKappa(; vth_perp, vth_para, kappa_perp, kappa_para, loss_cone = 0, vd_para = 0)
 
 Separable product bi-kappa with independent indices `κ⊥ > 1`, `κ∥ > 1/2` and a kappa
-loss cone of index `σ = loss_cone ≥ 0` (Summers–Thorne; `σ = 0` is no loss cone).
+loss cone of index `σ = loss_cone ≥ 0` (Summers–Thorne; `σ = 0` is no loss cone), with κ-independent temperatures.
 
     f ∝ x^σ (1 + x)^{-(κ⊥+σ+1)} · (1 + (v∥ - vd_para)²/(κ∥θ∥²))^{-(κ∥+1)},   x = v⊥²/(κ⊥θ⊥²)
     θ⊥² = (1 - 1/κ⊥)·vth⊥²/(1 + σ),   θ∥² = (1 - 1/(2κ∥))·vth∥²
