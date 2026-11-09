@@ -27,5 +27,6 @@ pdf(o::Oriented, v) = pdf(o.vdf, o.basis' * (si_velocity.(SVector{3}(v)) - o.u))
 Statistics.mean(o::Oriented) = o.u + o.basis * mean(o.vdf)
 Statistics.cov(o::Oriented) = o.basis * cov(o.vdf) * o.basis'
 vth_perp_para(o::Oriented) = vth_perp_para(o.vdf)
+_temperature_per_mass(o::Oriented) = _temperature_per_mass(o.vdf)
 
 Random.rand(rng::AbstractRNG, o::Oriented) = o.u + o.basis * rand(rng, o.vdf)

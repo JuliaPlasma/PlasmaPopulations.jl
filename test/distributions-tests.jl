@@ -1,6 +1,7 @@
 using PlasmaPopulations, Test
 using LinearAlgebra, QuadGK, Random, SpecialFunctions, Statistics, Unitful
-using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed
+using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed,
+    temperature_perp_para, plasma_beta, charge_density, current_density, E_SI, MU0_SI
 
 @testset "Moments of pdf" begin
     # ∫ f d³v = 1, ⟨v∥⟩ = vd_para, ⟨v⊥²⟩ = vth⊥², ⟨(v∥-vd_para)²⟩ = vth∥²/2
@@ -11,8 +12,9 @@ using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_w
     end
     vth = (vth_perp = 1.3, vth_para = 0.7)
     for d in (GaussianRing(; vr_perp = 2.0, w_perp = 1.3, vth_para = 0.7, vd_para = 0.4), BiMaxwellian(; vth..., vd_para = 0.4), BiKappa(; vth..., kappa = 6.0, vd_para = -0.2), ProductBiKappa(; vth..., kappa_perp = 5.0, kappa_para = 4.0, vd_para = 0.1),
-            ProductBiKappa(; vth..., kappa_perp = 5.0, kappa_para = 4.0, loss_cone = 1.5))
-        n, vpara, vperp2, vpara2 = moments(d; vmax = d isa Union{BiMaxwellian, GaussianRing} ? 15.0 : 400.0)
+            ProductBiKappa(; vth..., kappa_perp = 5.0, kappa_para = 4.0, loss_cone = 1.5),
+            DoryGuestHarris(; vth..., loss_cone = 1.5, vd_para = 0.4), SubtractedMaxwellian(; vth..., delta = 0.3, beta = 0.4, vd_para = 0.4))
+        n, vpara, vperp2, vpara2 = moments(d; vmax = d isa Union{BiKappa, ProductBiKappa} ? 400.0 : 15.0)
         vth_perp, vth_para = vth_perp_para(d)
         @test n ≈ 1 rtol = 1e-6
         @test vpara ≈ mean(d)[3] atol = 1e-3
@@ -92,11 +94,13 @@ end
     @test_throws DomainError BiKappa(; vth..., kappa = 1.5)
     @test_throws DomainError ProductBiKappa(; vth..., kappa_perp = 1.0, kappa_para = 2.0)
 
-    # Dory-Guest-Harris: f⊥ = (v⊥/θ)^(2σ) exp(-v⊥²/θ²) / (πθ²σ!), θ² = vth⊥²/(1 + σ)
     lc = ProductBiKappa(; vth..., kappa_perp = 1e5, kappa_para = 1e5, loss_cone = 2)
-    θ = 1 / sqrt(3)
-    @test pdf(lc, 0.7, 0.3) ≈ (0.7 / θ)^4 / 2 * pdf(BiMaxwellian(; vth_perp = θ, vth_para = 2.0), 0.7, 0.3) rtol = 1e-3
+    @test pdf(lc, 0.7, 0.3) ≈ pdf(DoryGuestHarris(; vth..., loss_cone = 2), 0.7, 0.3) rtol = 1e-3
     @test pdf(lc, 0.0, 0.3) == 0
+    @test pdf(DoryGuestHarris(; vth..., loss_cone = 0), 0.7, 0.3) ≈ pdf(m, 0.7, 0.3)
+    @test pdf(SubtractedMaxwellian(; vth..., delta = 1, beta = 0.5), 0.7, 0.3) ≈ pdf(m, 0.7, 0.3)
+    @test pdf(SubtractedMaxwellian(; vth..., delta = 0, beta = 0.5), 0.0, 0.3) == 0
+    @test_throws DomainError SubtractedMaxwellian(; vth..., delta = 0.5, beta = 0)
 end
 
 @testset "Samples follow pdf" begin
@@ -106,6 +110,7 @@ end
     # the rejection sampler's mixture weights depend on vr_perp/w_perp
     for d in (BiMaxwellian(; vth..., vd_para = 0.5), BiKappa(; vth..., kappa = 3.0, vd_para = 0.5),
             ProductBiKappa(; vth..., kappa_perp = 3.0, kappa_para = 3.0, loss_cone = 2, vd_para = 0.5),
+            DoryGuestHarris(; vth..., loss_cone = 1.5, vd_para = 0.5), SubtractedMaxwellian(; vth..., delta = 0.3, beta = 0.4, vd_para = 0.5),
             ring(0.0, 1.0), ring(0.3, 1.0), ring(2.0, 1.0), ring(5.0, 0.5))
         vs = rand(rng, d, 200_000)
         vperp0, vpara0 = vth_perp_para(d)
@@ -122,7 +127,8 @@ end
     for T in (Float32, BigFloat)
         vth, v = one(T), T(1) / 2
         for d in (BiMaxwellian(; vth), GaussianRing(; vr_perp = vth, w_perp = vth, vth_para = vth), BiKappa(; vth, kappa = 4),
-                ProductBiKappa(; vth, kappa_perp = 4, kappa_para = 4, loss_cone = 1))
+                ProductBiKappa(; vth, kappa_perp = 4, kappa_para = 4, loss_cone = 1), DoryGuestHarris(; vth, loss_cone = 1),
+                SubtractedMaxwellian(; vth, delta = 1 // 2, beta = 1 // 4))
             @test pdf(d, v, v) isa T
             @test eltype(rand(d)) === T
         end
@@ -156,6 +162,18 @@ end
     @test Population(p, GaussianRing; vr_perp = 1.0, w_perp = 2.0, vth_para = 3.0, n = 1.0).vdf == GaussianRing(; vr_perp = 1.0, w_perp = 2.0, vth_para = 3.0)
 
     @test_throws ArgumentError BiMaxwellian(p; T_perp = Tperp)
+end
+
+@testset "Temperatures, β, charge and current of a plasma" begin
+    p, e = Proton(), Electron()
+    ions = Population(p, BiMaxwellian; T_perp = 100, T_para = 20, n = 5.0e6)
+    plasma = Plasma(ions, Population(e, BiMaxwellian; T = 50, vd_para = 1.0e5, n = 5.0e6); B0 = 5.0e-9)
+    @test all(temperature_perp_para(ions) .≈ (100, 20))
+    @test all(temperature_perp_para(Population(e, MaxwellJuttner; T = 511.0e3, n = 1.0)) .≈ 511.0e3)
+    @test all(plasma_beta(ions, plasma.B0) .≈ 2MU0_SI * 5.0e6 * E_SI .* (100, 20) ./ 25.0e-18)
+    @test all(plasma_beta(plasma) .≈ 2MU0_SI * 5.0e6 * E_SI .* (150, 70) ./ 25.0e-18)
+    @test charge_density(plasma) == 0
+    @test current_density(plasma) ≈ [0, 0, -5.0e6 * E_SI * 1.0e5]
 end
 
 @testset "GridVDF tabulates a gyrotropic distribution" begin

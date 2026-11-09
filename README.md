@@ -23,7 +23,7 @@ rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-align
 - Velocities are momenta per mass `𝐮 = γ𝐯 = 𝐩/m`.
 - `B0` is a magnitude or a 3-vector. Velocities and wavevectors are in the frame with `ẑ` along the field; the models here are gyrotropic about it.
   `Oriented` places a model in another frame.
-- Thermal speeds are moments for every model: `vth_perp² = ⟨v⊥²⟩` and `vth_para² = 2⟨(v∥ - vd_para)²⟩`, so `T = m vth²/2`.
+- Thermal speeds are moments for every model: `vth_perp² = ⟨v⊥²⟩` and `vth_para² = 2⟨(v∥ - vd_para)²⟩`, so `T = m vth²/2`, except `MaxwellJuttner`'s exact `T = θmc²`.
 - Constructors take keywords named after the fields, plus `vth` for `vth_perp = vth_para`.
   `V(particle; kw...)` also accepts `T_perp`, `T_para` or `T` (both) in place of `vth_perp`, `vth_para`, for models with those parameters.
 
@@ -40,6 +40,8 @@ rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-align
 | `GaussianRing(; vr_perp, w_perp, vth_para, vd_para = 0)` | ring, or ring beam with `vd_para`: `exp(-(v⊥-vr_perp)²/w_perp²) exp(-(v∥-vd_para)²/vth_para²)` |
 | `BiKappa(; vth_perp, vth_para, kappa, vd_para = 0)` | coupled bi-kappa, `(1 + v⊥²/A⊥ + (v∥-vd_para)²/A∥)^{-(κ+1)}`, `A = (κ-3/2)vth²` |
 | `ProductBiKappa(; vth_perp, vth_para, kappa_perp, kappa_para, loss_cone = 0, vd_para = 0)` | product of independent ⊥ and ∥ kappas; `loss_cone = σ` multiplies f⊥ by `(v⊥²/κ⊥θ⊥²)^σ` |
+| `DoryGuestHarris(; vth_perp, vth_para, loss_cone, vd_para = 0)` | Maxwellian loss cone `∝ v⊥^{2j}` of index `j = loss_cone` |
+| `SubtractedMaxwellian(; vth_perp, vth_para, delta, beta, vd_para = 0)` | Maxwellian loss cone: a narrower Maxwellian subtracted, fill `delta`, width ratio `beta` |
 | `Cold(; vd_para = 0)` | zero-temperature limit |
 | `MaxwellJuttner(; theta)` | relativistic Maxwellian `f ∝ exp(-γ/θ)` of temperature `θ = T/(mc²)` |
 | `GridVDF(v_perp, v_para, f)` | tabulated `f[i, j]`, bilinear and zero outside the grid; field `n = ∫ f d³v`, e.g. phase-space density → `Population(particle, d; d.n)` |
@@ -59,6 +61,9 @@ rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-align
 | `inertial_length(particle, n)` | $c/ω_p$ [m] |
 | `debye_length(particle, n, T)` | $\sqrt{ε₀T/(n q²)}$ [m] |
 | `mass_density(plasma)`, `alfven_speed(plasma)` | total `Σ nm` [kg/m³], `\|B₀\|/√(μ₀ρ)` with `ρ` over charged populations [m/s] |
+| `temperature_perp_para(population)` | `(T⊥, T∥)` [eV] |
+| `plasma_beta(population, B)`, `plasma_beta(plasma)` | `(β⊥, β∥) = 2μ₀nT/B²`, summed over charged populations |
+| `charge_density(plasma)`, `current_density(plasma)` | `Σ nq` [C/m³], `Σ nq⟨𝐯⟩` [A/m²] |
 
 ## Related
 

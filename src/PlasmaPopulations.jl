@@ -9,11 +9,12 @@ import Statistics
 using Statistics: mean, cov
 
 export Particle, Electron, Positron, Proton
-export AbstractVDF, BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, Cold, MaxwellJuttner, GridVDF, vth_perp_para, isgyrotropic
+export AbstractVDF, BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, DoryGuestHarris, SubtractedMaxwellian, Cold, MaxwellJuttner, GridVDF, vth_perp_para, isgyrotropic
 export Population, Plasma
 export Oriented
 
 VERSION >= v"1.11.0-DEV.469" && eval(Meta.parse("""public pdf, gyrofrequency, plasma_frequency, thermal_speed, inertial_length, debye_length, alfven_speed, mass_density,
+    temperature_perp_para, plasma_beta, charge_density, current_density,
     kappa_widths,
     si_number_density, si_magnetic_field, si_velocity, si_frequency, si_charge, si_mass, si_energy, si_phase_space_density,
     C_SI, E_SI, ME_SI, MP_SI, U_SI, EPS0_SI, MU0_SI, KB_SI"""))
@@ -39,6 +40,15 @@ mass_density(plasma::Plasma) = sum(s -> s.n * s.particle.m, plasma.populations)
 # Charged populations alone: neutrals load Alfvén waves only below the ion–neutral collision frequency, which a Plasma does not carry.
 alfven_speed(plasma::Plasma) =
     norm(plasma.B0) / sqrt(MU0_SI * sum(s -> !iszero(s.particle.q) * s.n * s.particle.m, plasma.populations))
+
+temperature_perp_para(s::Population) = s.particle.m .* _temperature_per_mass(s.vdf) ./ E_SI
+plasma_beta(s::Population, B) = (2 * MU0_SI * s.n * s.particle.m / norm(si_magnetic_field(B))^2) .* _temperature_per_mass(s.vdf)
+plasma_beta(plasma::Plasma) =
+    mapreduce(s -> !iszero(s.particle.q) .* plasma_beta(s, plasma.B0), (a, b) -> a .+ b, plasma.populations)
+
+charge_density(plasma::Plasma) = sum(s -> s.n * s.particle.q, plasma.populations)
+
+current_density(plasma::Plasma) = sum(s -> s.n * s.particle.q * mean(s.vdf), plasma.populations)
 
 
 end

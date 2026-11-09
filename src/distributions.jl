@@ -31,6 +31,14 @@ _isotropic_vth(::Nothing) = throw(ArgumentError("give `vth`, or both `vth_perp` 
 
 _si_speeds(speeds...) = promote(map(si_velocity, speeds)...)
 
+_maxwellian_para(d, v_para) = exp(-((v_para - d.vd_para) / d.vth_para)^2) / sqrt(π * d.vth_para^2)
+_rand_para(rng, d, T) = d.vd_para + d.vth_para / sqrt(T(2)) * randn(rng, T)
+
+function _with_gyrophase(rng, v_perp, v_para, T)
+    sinφ, cosφ = sincospi(2 * rand(rng, T))
+    return SVector(v_perp * cosφ, v_perp * sinφ, v_para)
+end
+
 Random.rand(rng::AbstractRNG, d::AbstractVDF, dims::Dims) = [rand(rng, d) for _ in CartesianIndices(dims)]
 
 """
@@ -55,14 +63,14 @@ BiMaxwellian(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotro
     BiMaxwellian(vth_perp, vth_para, vd_para)
 
 function _pdf(d::BiMaxwellian, v_perp, v_para)
-    a, b = d.vth_perp, d.vth_para
-    return exp(-(v_perp / a)^2) / (π * a^2) * exp(-((v_para - d.vd_para) / b)^2) / sqrt(π * b^2)
+    a = d.vth_perp
+    return exp(-(v_perp / a)^2) / (π * a^2) * _maxwellian_para(d, v_para)
 end
 
 function Random.rand(rng::AbstractRNG, d::BiMaxwellian)
     T = float(typeof(d.vth_perp))
     sperp = d.vth_perp / sqrt(T(2))
-    return SVector(sperp * randn(rng, T), sperp * randn(rng, T), d.vd_para + d.vth_para / sqrt(T(2)) * randn(rng, T))
+    return SVector(sperp * randn(rng, T), sperp * randn(rng, T), _rand_para(rng, d, T))
 end
 
 """
@@ -97,9 +105,9 @@ function vth_perp_para(d::GaussianRing)
 end
 
 function _pdf(d::GaussianRing, v_perp, v_para)
-    a, b, r = d.w_perp, d.vth_para, d.vr_perp / d.w_perp
+    a, r = d.w_perp, d.vr_perp / d.w_perp
     fperp = exp(-((abs(v_perp) - d.vr_perp) / a)^2) / (π * a^2 * (exp(-r^2) + sqrt(π * one(r)) * r * erfc(-r)))
-    return fperp * exp(-((v_para - d.vd_para) / b)^2) / sqrt(π * b^2)
+    return fperp * _maxwellian_para(d, v_para)
 end
 
 # x ∝ x exp(-(x - r)²) on x > 0, r ≥ 0, by rejection from (r + |x - r|) exp(-(x - r)²): a mixture of
@@ -117,8 +125,7 @@ end
 function Random.rand(rng::AbstractRNG, d::GaussianRing)
     T = float(typeof(d.w_perp))
     v_perp = d.w_perp * _rand_ring(rng, T(d.vr_perp / d.w_perp))
-    sinφ, cosφ = sincospi(2 * rand(rng, T))
-    return SVector(v_perp * cosφ, v_perp * sinφ, d.vd_para + d.vth_para / sqrt(T(2)) * randn(rng, T))
+    return _with_gyrophase(rng, v_perp, _rand_para(rng, d, T), T)
 end
 
 """
@@ -218,12 +225,94 @@ function Random.rand(rng::AbstractRNG, d::ProductBiKappa)
     T = typeof(κperp)
     θperp, θpara = kappa_widths(d)
     v_perp = θperp * sqrt(κperp * _rand_gamma(rng, σ + 1) / _rand_gamma(rng, κperp))
-    sinφ, cosφ = sincospi(2 * rand(rng, T))
     spara = θpara * sqrt(κpara / (2 * _rand_gamma(rng, κpara + 1 // 2)))
-    return SVector(v_perp * cosφ, v_perp * sinφ, d.vd_para + spara * randn(rng, T))
+    return _with_gyrophase(rng, v_perp, d.vd_para + spara * randn(rng, T), T)
 end
 
-function (::Type{V})(p::Particle; T = nothing, T_perp = T, T_para = T, kw...) where {V <: Union{BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa}}
+"""
+    DoryGuestHarris(; vth, loss_cone, vd_para = 0)
+    DoryGuestHarris(; vth_perp, vth_para, loss_cone, vd_para = 0)
+
+Maxwellian loss cone of index `j = loss_cone ≥ 0` (Dory, Guest & Harris 1965, PRL 14, 131); `j = 0` is `BiMaxwellian`.
+
+    f ∝ (v⊥/θ⊥)^{2j} exp(-v⊥²/θ⊥²) · exp(-(v∥ - vd_para)²/vth∥²),   θ⊥² = vth⊥²/(1 + j)
+"""
+struct DoryGuestHarris{T, K} <: AbstractVDF
+    vth_perp::T
+    vth_para::T
+    loss_cone::K
+    vd_para::T
+    function DoryGuestHarris(vth_perp, vth_para, loss_cone, vd_para)
+        loss_cone ≥ 0 || throw(DomainError(loss_cone, "DoryGuestHarris needs loss_cone ≥ 0"))
+        v_perp, v_para, vd = _si_speeds(vth_perp, vth_para, vd_para)
+        return new{typeof(v_perp), typeof(loss_cone)}(v_perp, v_para, loss_cone, vd)
+    end
+end
+
+DoryGuestHarris(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), loss_cone, vd_para = zero(vth_para)) =
+    DoryGuestHarris(vth_perp, vth_para, loss_cone, vd_para)
+
+function _pdf(d::DoryGuestHarris, v_perp, v_para)
+    j = _speed_float(d, d.loss_cone)
+    θ² = d.vth_perp^2 / (1 + j)
+    x = v_perp^2 / θ²
+    return x^j * exp(-x - loggamma(j + 1)) / (π * θ²) * _maxwellian_para(d, v_para)
+end
+
+function Random.rand(rng::AbstractRNG, d::DoryGuestHarris)
+    j = _speed_float(d, d.loss_cone)
+    T = typeof(j)
+    v_perp = d.vth_perp * sqrt(_rand_gamma(rng, j + 1) / (1 + j))
+    return _with_gyrophase(rng, v_perp, _rand_para(rng, d, T), T)
+end
+
+"""
+    SubtractedMaxwellian(; vth, delta, beta, vd_para = 0)
+    SubtractedMaxwellian(; vth_perp, vth_para, delta, beta, vd_para = 0)
+
+Maxwellian loss cone of fill `0 ≤ Δ = delta ≤ 1` and width `0 < β = beta < 1` (Ashour-Abdalla & Kennel 1978, JGR 83, 1531); `Δ = 1` is `BiMaxwellian`.
+
+    f ∝ [Δ e^{-x} + (1 - Δ)(e^{-x} - e^{-x/β})/(1 - β)] · exp(-(v∥ - vd_para)²/vth∥²),   x = v⊥²/a⊥²,   a⊥² = vth⊥²/(1 + β(1 - Δ))
+"""
+struct SubtractedMaxwellian{T, K} <: AbstractVDF
+    vth_perp::T
+    vth_para::T
+    delta::K
+    beta::K
+    vd_para::T
+    function SubtractedMaxwellian(vth_perp, vth_para, delta, beta, vd_para)
+        0 ≤ delta ≤ 1 || throw(DomainError(delta, "SubtractedMaxwellian needs 0 ≤ delta ≤ 1"))
+        0 < beta < 1 || throw(DomainError(beta, "SubtractedMaxwellian needs 0 < beta < 1"))
+        v_perp, v_para, vd = _si_speeds(vth_perp, vth_para, vd_para)
+        Δ, β = promote(delta, beta)
+        return new{typeof(v_perp), typeof(Δ)}(v_perp, v_para, Δ, β, vd)
+    end
+end
+
+SubtractedMaxwellian(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), delta, beta, vd_para = zero(vth_para)) =
+    SubtractedMaxwellian(vth_perp, vth_para, delta, beta, vd_para)
+
+function _pdf(d::SubtractedMaxwellian, v_perp, v_para)
+    Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
+    a² = d.vth_perp^2 / (1 + β * (1 - Δ))
+    x = v_perp^2 / a²
+    fperp = (Δ * exp(-x) + (1 - Δ) * (exp(-x) - exp(-x / β)) / (1 - β)) / (π * a²)
+    return fperp * _maxwellian_para(d, v_para)
+end
+
+# The loss-cone part of x = v⊥²/a⊥², (e^{-x} - e^{-x/β})/(1 - β), is the density of Exp(1) + β·Exp(1).
+function Random.rand(rng::AbstractRNG, d::SubtractedMaxwellian)
+    Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
+    T = typeof(β)
+    x = randexp(rng, T)
+    rand(rng, T) < Δ || (x += β * randexp(rng, T))
+    v_perp = d.vth_perp * sqrt(x / (1 + β * (1 - Δ)))
+    return _with_gyrophase(rng, v_perp, _rand_para(rng, d, T), T)
+end
+
+const _MomentVth = Union{BiMaxwellian, BiKappa, ProductBiKappa, DoryGuestHarris, SubtractedMaxwellian}
+
+function (::Type{V})(p::Particle; T = nothing, T_perp = T, T_para = T, kw...) where {V <: Union{_MomentVth, GaussianRing}}
     temperatures = pairs((; vth_perp = T_perp, vth_para = T_para))
     return V(; (k => thermal_speed(p, t) for (k, t) in temperatures if !isnothing(t))..., kw...)
 end
@@ -270,10 +359,14 @@ end
 
 Statistics.mean(d::MaxwellJuttner) = zero(SVector{3, typeof(float(d.theta))})
 
-const _FieldAligned = Union{BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, Cold}
+# T/m per (⊥, ∥) degree of freedom, from the pressure P = n m ⟨δ𝐮 δ𝐯⟩: `cov` is its nonrelativistic limit.
+_temperature_per_mass(d) = vth_perp_para(d) .^ 2 ./ 2
+_temperature_per_mass(d::MaxwellJuttner) = (c2θ = convert(typeof(float(d.theta)), C_SI)^2 * d.theta; (c2θ, c2θ))
+
+const _FieldAligned = Union{_MomentVth, GaussianRing, Cold}
 isgyrotropic(::Type{<:Union{_FieldAligned, MaxwellJuttner}}) = true
 Statistics.mean(d::_FieldAligned) = _mean_para(d.vd_para)
-vth_perp_para(d::Union{BiMaxwellian, BiKappa, ProductBiKappa}) = (d.vth_perp, d.vth_para)
+vth_perp_para(d::_MomentVth) = (d.vth_perp, d.vth_para)
 _mean_para(vd) = SVector(zero(vd), zero(vd), vd)
 
 # Marsaglia & Tsang (2000) Gamma(α, 1) sampler, α ≥ 1
