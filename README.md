@@ -5,15 +5,14 @@ Shared vocabulary for describing plasma: particles, velocity distribution models
 ```julia
 using PlasmaPopulations, Unitful
 
-p, e = Proton(), Electron()
 plasma = Plasma(
-    Population(p, BiMaxwellian; T_perp = 100u"eV", T_para = 20u"eV", n = 5u"cm^-3"),
-    Population(e, BiMaxwellian; T = 50u"eV", n = 5u"cm^-3");
+    Population(Proton, BiMaxwellian; T_perp = 100u"eV", T_para = 20u"eV", n = 5u"cm^-3"),
+    Population(Electron, BiMaxwellian; T = 50u"eV", n = 5u"cm^-3");
     B0 = 5u"nT",
 )
 PlasmaPopulations.alfven_speed(plasma)   # m/s
 
-rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-aligned velocities, m/s
+rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-aligned velocities, m/s
 ```
 
 ## Conventions
@@ -32,8 +31,8 @@ rand(BiMaxwellian(p; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-align
 | name | meaning |
 |---|---|
 | `Particle(q, m)` | charge [C], mass [kg]; fields `q`, `m` |
-| `Electron()`, `Positron()`, `Proton()` | named particles |
-| `Particle(formula, z)` | atom or molecule of charge number `z`; a bare element has its standard atomic weight, `{A}` before it (or `D`, `T`) picks a nuclide; e.g. `Particle(:NO, 1)`, `Particle("{18}O", 3)`, `Particle(:D2, 1)`. `Proton()` is exact ¹H⁺, `Particle(:H, 1)` is not |
+| `Electron`, `Positron`, `Proton` | named particles |
+| `Particle(formula, z)` | atom or molecule of charge number `z`; a bare element has its standard atomic weight, `{A}` before it (or `D`, `T`) picks a nuclide; e.g. `Particle(:NO, 1)`, `Particle("{18}O", 3)`, `Particle(:D2, 1)`. `Proton` is exact ¹H⁺, `Particle(:H, 1)` is not |
 | `Population(particle, vdf; n)`, `Population(particle, V; n, kw...)` | population; fields `particle`, `n`, `vdf`; a type `V` builds `vdf = V(particle; kw...)` |
 | `Plasma(populations...; B0)` | `Plasma(populations, B0)` with fields `populations`, `B0` |
 | `BiMaxwellian(; vth_perp, vth_para, vd_para = 0)` | drifting Maxwellian (`vth`) or bi-Maxwellian |

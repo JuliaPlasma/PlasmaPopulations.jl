@@ -22,10 +22,10 @@ end
 
 @testset "Unitful input" begin
     @test Particle(1.602176634e-19u"C", 1u"u").m ≈ ustrip(u"kg", 1u"u")
-    s = Population(Proton(), Cold(); n = 5u"cm^-3")
+    s = Population(Proton, Cold(); n = 5u"cm^-3")
     @test s.n ≈ 5e6
-    @test thermal_speed(Electron(), 11604.518u"K") ≈ thermal_speed(Electron(), 1) rtol = 1e-6
-    @test thermal_speed(Electron(), 1u"keV") ≈ thermal_speed(Electron(), 1000)
+    @test thermal_speed(Electron, 11604.518u"K") ≈ thermal_speed(Electron, 1) rtol = 1e-6
+    @test thermal_speed(Electron, 1u"keV") ≈ thermal_speed(Electron, 1000)
     @test Plasma(s; B0 = 5u"nT").B0 ≈ 5e-9
     @test Plasma(s, 5u"nT").populations == (s,)
     d = BiMaxwellian(; vth_perp = 1.0e3, vth_para = 1u"km/s", vd_para = 0.01u"c")
@@ -39,7 +39,7 @@ end
 end
 
 @testset "Formulary" begin
-    p, e = Proton(), Electron()
+    p, e = Proton, Electron
     pl = Plasma(Population(p, Cold(); n = 1e6), Population(e, Cold(); n = 1e6); B0 = 1e-8)
     @test alfven_speed(pl) ≈ 1e-8 / sqrt(MU0_SI * 1e6 * (p.m + e.m))
     O = Population(Particle(:O, 0), Cold(); n = 1e12)
