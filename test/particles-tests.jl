@@ -12,8 +12,9 @@ using PlasmaPopulations: E_SI, ME_SI, MP_SI, MU0_SI, U_SI, alfven_speed, debye_l
     @test Particle(:D2, 1).m == Particle("{2}H2", 1).m ≈ 2 * 2.01410177784U_SI - ME_SI
     @test Particle("H{2}H", 0).m ≈ (1.008 + 2.01410177784)U_SI
     @test Particle(:O2, -1).m ≈ 2Particle(:O, 0).m + ME_SI
-    @test Particle{Float32}(Electron) === Particle(Float32(-E_SI), Float32(ME_SI))
+    @test Particle{Float32}(Electron) === Particle(; q = Float32(-E_SI), m = Float32(ME_SI))
     @test Particle{Float32}(:NO, 1).m === Float32(Particle(:NO, 1).m)
+    @test Particle{Float32}(; q = E_SI, m = MP_SI) === Particle{Float32}(Proton)
     @test Particle{Float32}[Proton][1] === Particle{Float32}(Proton)
     @test_throws ArgumentError Particle(:H, 2)
     @test_throws ArgumentError Particle("{19}O", 1)
@@ -24,7 +25,7 @@ using PlasmaPopulations: E_SI, ME_SI, MP_SI, MU0_SI, U_SI, alfven_speed, debye_l
 end
 
 @testset "Unitful input" begin
-    @test Particle(1.602176634e-19u"C", 1u"u").m ≈ ustrip(u"kg", 1u"u")
+    @test Particle(; q = 1.602176634e-19u"C", m = 1u"u").m ≈ ustrip(u"kg", 1u"u")
     s = Population(Proton, Cold(); n = 5u"cm^-3")
     @test s.n ≈ 5e6
     @test thermal_speed(Electron, 11604.518u"K") ≈ thermal_speed(Electron, 1) rtol = 1e-6

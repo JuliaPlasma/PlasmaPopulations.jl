@@ -1,20 +1,21 @@
 struct Particle{T <: Real}
     q::T
     m::T
-    Particle(q, m) = (qm = promote(si_charge(q), si_mass(m)); new{eltype(qm)}(qm...))
+    Particle(; q, m) = (qm = promote(si_charge(q), si_mass(m)); new{eltype(qm)}(qm...))
 end
 
 # Parse in Float64 then round
-Particle{T}(args...) where {T <: Real} = Particle{T}(Particle(args...))
-Particle{T}(p::Particle) where {T <: Real} = Particle(T(p.q), T(p.m))
+Particle{T}(args...; kw...) where {T <: Real} = Particle{T}(Particle(args...; kw...))
+Particle{T}(p::Particle) where {T <: Real} = Particle(; q = T(p.q), m = T(p.m))
 Base.convert(::Type{Particle{T}}, p::Particle) where {T <: Real} = Particle{T}(p)
+Base.@deprecate Particle(q, m) Particle(; q, m) false
 
 Base.broadcastable(p::Particle) = Ref(p)
 Base.show(io::IO, p::Particle) = print(io, "Particle(z = ", p.q / E_SI, ", m = ", p.m / U_SI, " u)")
 
-const Electron = Particle(-E_SI, ME_SI)
-const Positron = Particle(E_SI, ME_SI)
-const Proton = Particle(E_SI, MP_SI)
+const Electron = Particle(; q = -E_SI, m = ME_SI)
+const Positron = Particle(; q = E_SI, m = ME_SI)
+const Proton = Particle(; q = E_SI, m = MP_SI)
 
 """
     Particle(formula, z)
@@ -28,7 +29,7 @@ function Particle(formula::Union{Symbol, AbstractString}, z::Integer)
         Z += count * Zi
     end
     z ≤ Z || throw(ArgumentError("$formula has only $Z electrons to strip, got z = $z"))
-    return Particle(z * E_SI, m * U_SI - z * ME_SI)
+    return Particle(; q = z * E_SI, m = m * U_SI - z * ME_SI)
 end
 
 # (atomic number, mass [u], count) per segment
@@ -43,7 +44,7 @@ function _parse_formula(str::String)
         Z, weight = ELEMENTS[el]
         mass = isnothing(A) ? weight : get(ISOTOPES, (el, A)) do
             known = sort!([k[2] for k in keys(ISOTOPES) if k[1] == el])
-            throw(ArgumentError("no mass for {$A}$el; known: $known; use Particle(q, m)"))
+            throw(ArgumentError("no mass for {$A}$el; known: $known; use Particle(; q, m)"))
         end
         push!(atoms, (Z, mass, isempty(m[3]) ? 1 : parse(Int, m[3])))
         pos += ncodeunits(m.match)
