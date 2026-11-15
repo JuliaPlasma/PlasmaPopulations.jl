@@ -29,7 +29,6 @@ include("grid.jl")
 include("oriented.jl")
 include("population.jl")
 
-# formulary
 debye_length(p::Particle, n, T) = sqrt(EPS0_SI * si_energy(T) / (abs(si_number_density(n)) * p.q^2))
 gyrofrequency(p::Particle, 𝐁) = p.q * norm(si_magnetic_field(𝐁)) / p.m
 plasma_frequency(p::Particle, n) = abs(p.q) * sqrt(abs(si_number_density(n)) / (EPS0_SI * p.m))

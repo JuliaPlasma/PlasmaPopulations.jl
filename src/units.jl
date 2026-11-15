@@ -5,5 +5,5 @@ si_velocity(x) = x
 si_frequency(x) = x
 si_charge(x) = x
 si_mass(x) = x
-si_energy(x) = x * E_SI
+si_energy(x) = x * oftype(float(x), E_SI)
 si_phase_space_density(x) = x

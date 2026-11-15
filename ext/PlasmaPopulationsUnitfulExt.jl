@@ -14,6 +14,6 @@ PP.si_phase_space_density(f::AbstractArray{<:AbstractQuantity}) = ustrip.(u"s^3/
 
 # A temperature carries no energy dimension until multiplied by k_B
 PP.si_energy(T::AbstractQuantity) =
-    ustrip(u"J", dimension(T) == dimension(u"K") ? uconvert(u"J", T * Unitful.k) : T)
+    dimension(T) == dimension(u"K") ? (t = ustrip(u"K", T); t * oftype(float(t), PP.KB_SI)) : ustrip(u"J", T)
 
 end

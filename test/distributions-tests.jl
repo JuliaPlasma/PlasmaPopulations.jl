@@ -133,6 +133,9 @@ end
             @test eltype(rand(d)) === T
         end
     end
+    p32 = Particle{Float32}(Proton)
+    @test BiMaxwellian(p32; T = 10.0f0) isa BiMaxwellian{Float32}
+    @test thermal_speed(p32, 1.0f4u"K") isa Float32
     setprecision(256) do
         v = big"0.5"
         @test abs(pdf(BiMaxwellian(; vth = big"1.0"), v, v) - exp(-2v^2) / big(π)^big"1.5") < big"1e-70"
