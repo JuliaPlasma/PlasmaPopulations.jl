@@ -312,10 +312,11 @@ end
 
 const _MomentVth = Union{BiMaxwellian, BiKappa, ProductBiKappa, DoryGuestHarris, SubtractedMaxwellian}
 
-function (::Type{V})(p::Particle; T = nothing, T_perp = T, T_para = T, kw...) where {V <: Union{_MomentVth, GaussianRing}}
-    temperatures = pairs((; vth_perp = T_perp, vth_para = T_para))
-    return V(; (k => thermal_speed(p, t) for (k, t) in temperatures if !isnothing(t))..., kw...)
-end
+(::Type{V})(p::Particle; T = nothing, T_perp = nothing, T_para = nothing, kw...) where {V <: Union{_MomentVth, GaussianRing}} =
+    V(; _vth_kw(:vth, p, T)..., _vth_kw(:vth_perp, p, T_perp)..., _vth_kw(:vth_para, p, T_para)..., kw...)
+
+_vth_kw(k, p, ::Nothing) = (;)
+_vth_kw(k, p, T) = NamedTuple{(k,)}((thermal_speed(p, T),))
 
 """
     Cold(; vd_para = 0)

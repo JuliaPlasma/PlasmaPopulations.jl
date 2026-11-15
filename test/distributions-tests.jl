@@ -134,7 +134,7 @@ end
         end
     end
     p32 = Particle{Float32}(Proton)
-    @test BiMaxwellian(p32; T = 10.0f0) isa BiMaxwellian{Float32}
+    @test (@inferred BiMaxwellian(p32; T = 10.0f0)) isa BiMaxwellian{Float32}
     @test thermal_speed(p32, 1.0f4u"K") isa Float32
     setprecision(256) do
         v = big"0.5"
@@ -165,6 +165,7 @@ end
     @test Population(p, GaussianRing; vr_perp = 1.0, w_perp = 2.0, vth_para = 3.0, n = 1.0).vdf == GaussianRing(; vr_perp = 1.0, w_perp = 2.0, vth_para = 3.0)
 
     @test_throws ArgumentError BiMaxwellian(p; T_perp = Tperp)
+    @test BiMaxwellian(p; T = Tpara, T_perp = Tperp) == BiMaxwellian(; vth_perp = v_perp, vth_para = v_para)
 end
 
 @testset "Temperatures, β, charge and current of a plasma" begin

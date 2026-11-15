@@ -28,7 +28,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
   `Oriented` places a model in another frame.
 - Thermal speeds are moments for every model: `vth_perp² = ⟨v⊥²⟩` and `vth_para² = 2⟨(v∥ - vd_para)²⟩`, so `T = m vth²/2`, except `MaxwellJuttner`'s exact `T = θmc²`.
 - Constructors take keywords named after the fields, plus `vth` for `vth_perp = vth_para`.
-  `V(particle; kw...)` also accepts `T_perp`, `T_para` or `T` (both) in place of `vth_perp`, `vth_para`, for models with those parameters.
+  `V(particle; kw...)` also accepts `T`, `T_perp`, `T_para` in place of `vth`, `vth_perp`, `vth_para`, for models with those parameters.
 
 ## API
 
