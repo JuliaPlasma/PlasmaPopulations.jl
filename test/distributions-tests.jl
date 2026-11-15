@@ -67,7 +67,7 @@ end
 end
 
 @testset "B0 is a magnitude or a vector" begin
-    p = Proton()
+    p = Proton
     s = Population(p, Cold(); n = 1.0e6)
     for B0 in (-5.0e-9, [0.0, 3.0e-9, 4.0e-9], [0.0, 3.0, 4.0]u"nT")
         @test alfven_speed(Plasma(s; B0)) ≈ alfven_speed(Plasma(s; B0 = 5.0e-9))
@@ -76,7 +76,7 @@ end
 end
 
 @testset "negative density" begin
-    p = Proton()
+    p = Proton
     @test plasma_frequency(p, -4.0e6) == plasma_frequency(p, 4.0e6)
     @test debye_length(p, -4.0e6, 10.0) == debye_length(p, 4.0e6, 10.0)
     plasma = Plasma(Population(p, Cold(); n = 3.0e6), Population(p, Cold(); n = -1.0e6); B0 = 1.0e-8)
@@ -148,7 +148,7 @@ end
 end
 
 @testset "Population builds a model from temperatures or speeds" begin
-    p = Proton()
+    p = Proton
     Tperp, Tpara = 100u"eV", 20u"eV"
     v_perp, v_para = thermal_speed(p, Tperp), thermal_speed(p, Tpara)
 
@@ -165,11 +165,10 @@ end
 end
 
 @testset "Temperatures, β, charge and current of a plasma" begin
-    p, e = Proton(), Electron()
-    ions = Population(p, BiMaxwellian; T_perp = 100, T_para = 20, n = 5.0e6)
-    plasma = Plasma(ions, Population(e, BiMaxwellian; T = 50, vd_para = 1.0e5, n = 5.0e6); B0 = 5.0e-9)
+    ions = Population(Proton, BiMaxwellian; T_perp = 100, T_para = 20, n = 5.0e6)
+    plasma = Plasma(ions, Population(Electron, BiMaxwellian; T = 50, vd_para = 1.0e5, n = 5.0e6); B0 = 5.0e-9)
     @test all(temperature_perp_para(ions) .≈ (100, 20))
-    @test all(temperature_perp_para(Population(e, MaxwellJuttner; T = 511.0e3, n = 1.0)) .≈ 511.0e3)
+    @test all(temperature_perp_para(Population(Electron, MaxwellJuttner; T = 511.0e3, n = 1.0)) .≈ 511.0e3)
     @test all(plasma_beta(ions, plasma.B0) .≈ 2MU0_SI * 5.0e6 * E_SI .* (100, 20) ./ 25.0e-18)
     @test all(plasma_beta(plasma) .≈ 2MU0_SI * 5.0e6 * E_SI .* (150, 70) ./ 25.0e-18)
     @test charge_density(plasma) == 0
@@ -206,6 +205,6 @@ end
     end
     nr = MaxwellJuttner(; theta = 1e-6)
     @test pdf(nr, 0.3c * 1e-3, 0.2c * 1e-3) ≈ pdf(BiMaxwellian(; vth = c * sqrt(2e-6)), 0.3c * 1e-3, 0.2c * 1e-3) rtol = 1e-4
-    @test MaxwellJuttner(Electron(); T = 511u"keV").theta ≈ 1 rtol = 1e-3
+    @test MaxwellJuttner(Electron; T = 511u"keV").theta ≈ 1 rtol = 1e-3
     @test_throws DomainError MaxwellJuttner(; theta = 0)
 end

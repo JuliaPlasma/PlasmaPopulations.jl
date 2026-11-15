@@ -7,9 +7,9 @@ end
 Base.broadcastable(p::Particle) = Ref(p)
 Base.show(io::IO, p::Particle) = print(io, "Particle(z = ", p.q / E_SI, ", m = ", p.m / U_SI, " u)")
 
-Electron() = Particle(-E_SI, ME_SI)
-Positron() = Particle(E_SI, ME_SI)
-Proton() = Particle(E_SI, MP_SI)
+const Electron = Particle(-E_SI, ME_SI)
+const Positron = Particle(E_SI, ME_SI)
+const Proton = Particle(E_SI, MP_SI)
 
 """
     Particle(formula, z)
