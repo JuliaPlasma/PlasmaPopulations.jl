@@ -296,7 +296,7 @@ function _pdf(d::SubtractedMaxwellian, v_perp, v_para)
     Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
     a² = d.vth_perp^2 / (1 + β * (1 - Δ))
     x = v_perp^2 / a²
-    fperp = (Δ * exp(-x) + (1 - Δ) * (exp(-x) - exp(-x / β)) / (1 - β)) / (π * a²)
+    fperp = exp(-x) * (Δ - (1 - Δ) * expm1(x - x / β) / (1 - β)) / (π * a²)
     return fperp * _maxwellian_para(d, v_para)
 end
 
