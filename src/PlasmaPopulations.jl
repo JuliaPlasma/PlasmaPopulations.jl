@@ -2,6 +2,7 @@ module PlasmaPopulations
 
 using Random: AbstractRNG, randexp, randn, rand
 import Random
+using Bessels: besselkx
 using Gamma: loggamma
 using StaticArrays: SVector, SMatrix
 using LinearAlgebra: norm

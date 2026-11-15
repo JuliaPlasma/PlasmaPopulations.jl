@@ -348,13 +348,13 @@ function _pdf(d::MaxwellJuttner, v_perp, v_para)
     θ = float(d.theta)
     c = convert(typeof(θ), C_SI)
     x = (v_perp^2 + v_para^2) / c^2
-    return exp(-x / (1 + sqrt(1 + x)) / θ) / (4 * oftype(θ, π) * c^3 * θ * _besselkx(2, 1 / θ))
+    return exp(-x / (1 + sqrt(1 + x)) / θ) / (4 * oftype(θ, π) * c^3 * θ * besselkx(2, 1 / θ))
 end
 
 # ⟨u_i²⟩ = c²θ K₃(1/θ)/K₂(1/θ)
 function vth_perp_para(d::MaxwellJuttner)
     θ = float(d.theta)
-    v = convert(typeof(θ), C_SI) * sqrt(2θ * _besselkx(3, 1 / θ) / _besselkx(2, 1 / θ))
+    v = convert(typeof(θ), C_SI) * sqrt(2θ * besselkx(3, 1 / θ) / besselkx(2, 1 / θ))
     return (v, v)
 end
 
