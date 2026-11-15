@@ -4,6 +4,11 @@ struct Particle{T <: Real}
     Particle(q, m) = (qm = promote(si_charge(q), si_mass(m)); new{eltype(qm)}(qm...))
 end
 
+# Parse in Float64 then round
+Particle{T}(args...) where {T <: Real} = Particle{T}(Particle(args...))
+Particle{T}(p::Particle) where {T <: Real} = Particle(T(p.q), T(p.m))
+Base.convert(::Type{Particle{T}}, p::Particle) where {T <: Real} = Particle{T}(p)
+
 Base.broadcastable(p::Particle) = Ref(p)
 Base.show(io::IO, p::Particle) = print(io, "Particle(z = ", p.q / E_SI, ", m = ", p.m / U_SI, " u)")
 

@@ -12,6 +12,9 @@ using PlasmaPopulations: E_SI, ME_SI, MP_SI, MU0_SI, U_SI, alfven_speed, debye_l
     @test Particle(:D2, 1).m == Particle("{2}H2", 1).m ≈ 2 * 2.01410177784U_SI - ME_SI
     @test Particle("H{2}H", 0).m ≈ (1.008 + 2.01410177784)U_SI
     @test Particle(:O2, -1).m ≈ 2Particle(:O, 0).m + ME_SI
+    @test Particle{Float32}(Electron) === Particle(Float32(-E_SI), Float32(ME_SI))
+    @test Particle{Float32}(:NO, 1).m === Float32(Particle(:NO, 1).m)
+    @test Particle{Float32}[Proton][1] === Particle{Float32}(Proton)
     @test_throws ArgumentError Particle(:H, 2)
     @test_throws ArgumentError Particle("{19}O", 1)
     @test_throws ArgumentError Particle("{2}D", 1)
