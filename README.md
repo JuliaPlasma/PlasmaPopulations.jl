@@ -67,6 +67,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `mass_density(plasma)`, `alfven_speed(plasma)` | total `Σ nm` [kg/m³], `\|B₀\|/√(μ₀ρ)` with `ρ` over charged populations [m/s] |
 | `temperature_perp_para(population)` | `(T⊥, T∥)` [eV] |
 | `plasma_beta(population, B)`, `plasma_beta(plasma)` | `(β⊥, β∥) = 2μ₀nT/B²`, summed over charged populations |
+| `agyrotropy(P, B)` | `√Q` of a 3×3 pressure (or temperature, covariance) tensor about `𝐁` (Swisdak 2016): 0 if gyrotropic, 1 at most |
 | `charge_density(plasma)`, `current_density(plasma)` | `Σ nq` [C/m³], `Σ nq⟨𝐯⟩` [A/m²] |
 
 ## Related

@@ -5,7 +5,7 @@ import Random
 using Bessels: besselkx
 using Gamma: loggamma
 using StaticArrays: SVector, SMatrix
-using LinearAlgebra: norm
+using LinearAlgebra: norm, tr
 import Statistics
 using Statistics: mean, cov
 
@@ -15,7 +15,7 @@ export Population, Plasma
 export Oriented
 
 VERSION >= v"1.11.0-DEV.469" && eval(Meta.parse("""public pdf, gyrofrequency, plasma_frequency, thermal_speed, inertial_length, debye_length, alfven_speed, mass_density,
-    temperature_perp_para, plasma_beta, charge_density, current_density,
+    temperature_perp_para, plasma_beta, agyrotropy, charge_density, current_density,
     kappa_widths,
     si_number_density, si_magnetic_field, si_velocity, si_frequency, si_charge, si_mass, si_energy, si_phase_space_density,
     C_SI, E_SI, ME_SI, MP_SI, U_SI, EPS0_SI, MU0_SI, KB_SI"""))
@@ -45,6 +45,15 @@ temperature_perp_para(s::Population) = s.particle.m .* _temperature_per_mass(s.v
 plasma_beta(s::Population, B) = (2 * MU0_SI * s.n * s.particle.m / norm(si_magnetic_field(B))^2) .* _temperature_per_mass(s.vdf)
 plasma_beta(plasma::Plasma) =
     mapreduce(s -> !iszero(s.particle.q) .* plasma_beta(s, plasma.B0), (a, b) -> a .+ b, plasma.populations)
+
+# Swisdak (2016) √Q in rotation invariants.
+function agyrotropy(P, B)
+    b = B / norm(B)
+    Ppara = b' * P * b
+    I₁ = tr(P)
+    I₂ = P[1, 1] * P[2, 2] + P[1, 1] * P[3, 3] + P[2, 2] * P[3, 3] - P[1, 2] * P[2, 1] - P[1, 3] * P[3, 1] - P[2, 3] * P[3, 2]
+    return sqrt(max(1 - 4I₂ / ((I₁ - Ppara) * (I₁ + 3Ppara)), 0))
+end
 
 charge_density(plasma::Plasma) = sum(s -> s.n * s.particle.q, plasma.populations)
 

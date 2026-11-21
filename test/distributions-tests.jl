@@ -1,7 +1,7 @@
 using PlasmaPopulations, Test
 using LinearAlgebra, QuadGK, Random, SpecialFunctions, Statistics, Unitful
 using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed,
-    temperature_perp_para, plasma_beta, charge_density, current_density, E_SI, MU0_SI
+    temperature_perp_para, plasma_beta, agyrotropy, charge_density, current_density, E_SI, MU0_SI
 
 @testset "Moments of pdf" begin
     # ∫ f d³v = 1, ⟨v∥⟩ = vd_para, ⟨v⊥²⟩ = vth⊥², ⟨(v∥-vd_para)²⟩ = vth∥²/2
@@ -178,6 +178,14 @@ end
     @test all(plasma_beta(plasma) .≈ 2MU0_SI * 5.0e6 * E_SI .* (150, 70) ./ 25.0e-18)
     @test charge_density(plasma) == 0
     @test current_density(plasma) ≈ [0, 0, -5.0e6 * E_SI * 1.0e5]
+end
+
+@testset "agyrotropy" begin
+    # rotated field-aligned P⊥ = 1, P∥ = 2, P₁₂ = a: √Q = a / √(P⊥² + 2P⊥P∥)
+    R = [1 0 0; 0 cosd(50) -sind(50); 0 sind(50) cosd(50)]
+    for a in (0, 0.3)
+        @test agyrotropy(R * [1 a 0; a 1 0; 0 0 2] * R', R * [0, 0, 3]) ≈ a / sqrt(5) atol = 1.0e-7
+    end
 end
 
 @testset "GridVDF tabulates a gyrotropic distribution" begin
