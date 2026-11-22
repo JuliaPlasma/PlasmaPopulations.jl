@@ -393,15 +393,18 @@ Statistics.mean(d::_FieldAligned) = _mean_para(d.vd_para)
 vth_perp_para(d::_MomentVth) = (d.vth_perp, d.vth_para)
 _mean_para(vd) = SVector(zero(vd), zero(vd), vd)
 
-# Marsaglia & Tsang (2000) Gamma(α, 1) sampler, α ≥ 1
+# Marsaglia & Tsang (2000) Gamma(α, 1) sampler, α ≥ 1; the Z⁴ squeeze accepts ~98% of draws without the logs.
 function _rand_gamma(rng::AbstractRNG, α::T) where {T}
     α ≥ 1 || throw(DomainError(α, "Gamma sampler needs α ≥ 1"))
     d = α - 1 // 3
     c = 1 / sqrt(9d)
     while true
         Z = randn(rng, T)
-        Z > -1 / c || continue
-        v = (1 + c * Z)^3
-        log(rand(rng, T)) < Z^2 / 2 + d * (1 - v + log(v)) && return d * v
+        v = 1 + c * Z
+        v > 0 || continue
+        v = v^3
+        U = rand(rng, T)
+        U < 1 - T(0.0331) * Z^4 && return d * v
+        log(U) < Z^2 / 2 + d * (1 - v + log(v)) && return d * v
     end
 end
