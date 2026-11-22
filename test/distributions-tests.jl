@@ -43,6 +43,8 @@ end
     @test pdf(d, (3.0, 4.0, 0.4)) == pdf(d, 5.0, 0.4)
     @test pdf(d, 1u"km/s", 2u"m/s") == pdf(d, 1000.0, 2.0)
     @test pdf(d, [3u"km/s", 4u"km/s", 400.0u"m/s"]) ≈ pdf(d, 5000.0, 400.0)
+    @test isbits(pdf(Oriented(GaussianRing(; vr_perp = 2.0, w_perp = 1.3, vth_para = 0.7), (1, 0, 0))))
+    @test pdf(d).([(3.0, 4.0, 0.4)]) == [pdf(d, 5.0, 0.4)]
 end
 
 @testset "Oriented places a model in the frame of B and u" begin

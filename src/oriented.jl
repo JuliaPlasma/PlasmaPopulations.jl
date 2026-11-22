@@ -22,7 +22,9 @@ function _field_aligned_basis(B)
     return hcat(SVector(1 + s * b[1]^2 * a, s * c, -s * b[1]), SVector(c, s + b[2]^2 * a, -b[2]), b)
 end
 
-pdf(o::Oriented, v) = pdf(o.vdf, o.basis' * (si_velocity.(SVector{3}(v)) - o.u))
+pdf(o::Oriented) = _PDF(o, pdf(o.vdf))
+(f::_PDF{<:Oriented})(v) = f.c(f.d.basis' * (si_velocity.(SVector{3}(v)) - f.d.u))
+pdf(o::Oriented, v) = pdf(o)(v)
 
 Statistics.mean(o::Oriented) = o.u + o.basis * mean(o.vdf)
 Statistics.cov(o::Oriented) = o.basis * cov(o.vdf) * o.basis'

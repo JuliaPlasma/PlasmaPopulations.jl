@@ -9,9 +9,21 @@ isgyrotropic(d) = isgyrotropic(typeof(d))
 isgyrotropic(::Type) = false
 
 # Gyrotropic models implement `pdf(d, v_perp, v_para)`, even in `v_perp`, and `vth_perp_para`; others `pdf(d, 𝐯)` and `cov`.
+# Models here implement `_pdf(d, c, v_perp, v_para)` instead, with parameter-only factors `c = _pdf_const(d)` computed once per `pdf(d)`.
+struct _PDF{D, C} <: Function
+    d::D
+    c::C
+end
 
-pdf(d::AbstractVDF, v) = isgyrotropic(d) ? pdf(d, sqrt(v[1]^2 + v[2]^2), v[3]) : throw(MethodError(pdf, (d, v)))
-pdf(d, v_perp, v_para) = _pdf(d, si_velocity(v_perp), si_velocity(v_para))
+pdf(d::AbstractVDF) = _PDF(d, _pdf_const(d))
+_pdf_const(d) = nothing
+(f::_PDF)(v) = isgyrotropic(f.d) ? f(sqrt(v[1]^2 + v[2]^2), v[3]) : pdf(f.d, v)
+(f::_PDF)(v_perp, v_para) = _pdf(f.d, f.c, si_velocity(v_perp), si_velocity(v_para))
+(f::_PDF{<:Any, Nothing})(v_perp, v_para) = pdf(f.d, v_perp, v_para)
+pdf(d::AbstractVDF, v_perp, v_para) = _pdf(d, _pdf_const(d), si_velocity(v_perp), si_velocity(v_para))
+_pdf(d, c, v_perp, v_para) = throw(MethodError(pdf, (d, v_perp, v_para)))
+
+pdf(d::AbstractVDF, v) = isgyrotropic(d) ? pdf(d)(v) : throw(MethodError(pdf, (d, v)))
 
 Statistics.cov(d::AbstractVDF) = isgyrotropic(d) ? _gyrotropic_cov(vth_perp_para(d)...) : throw(MethodError(cov, (d,)))
 vth_perp_para(d::AbstractVDF) = isgyrotropic(d) ? throw(MethodError(vth_perp_para, (d,))) : _vth_perp_para(cov(d))
@@ -62,7 +74,7 @@ end
 BiMaxwellian(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), vd_para = zero(vth_para)) =
     BiMaxwellian(vth_perp, vth_para, vd_para)
 
-function _pdf(d::BiMaxwellian, v_perp, v_para)
+function _pdf(d::BiMaxwellian, _, v_perp, v_para)
     a = d.vth_perp
     return exp(-(v_perp / a)^2) / (π * a^2) * _maxwellian_para(d, v_para)
 end
@@ -104,11 +116,12 @@ function vth_perp_para(d::GaussianRing)
     return (d.w_perp * sqrt((2e * (1 + r^2) + (3r + 2r^3) * E) / (2 * (e + r * E))), d.vth_para)
 end
 
-function _pdf(d::GaussianRing, v_perp, v_para)
-    a, r = d.w_perp, d.vr_perp / d.w_perp
-    fperp = exp(-((abs(v_perp) - d.vr_perp) / a)^2) / (π * a^2 * (exp(-r^2) + sqrt(π * one(r)) * r * erfc(-r)))
-    return fperp * _maxwellian_para(d, v_para)
+function _pdf_const(d::GaussianRing)
+    r = d.vr_perp / d.w_perp
+    return 1 / (π * d.w_perp^2 * (exp(-r^2) + sqrt(π * one(r)) * r * erfc(-r)))
 end
+
+_pdf(d::GaussianRing, C, v_perp, v_para) = C * exp(-((abs(v_perp) - d.vr_perp) / d.w_perp)^2) * _maxwellian_para(d, v_para)
 
 # x ∝ x exp(-(x - r)²) on x > 0, r ≥ 0, by rejection from (r + |x - r|) exp(-(x - r)²): a mixture of
 # a Gaussian (weight r√π) and a two-sided Rayleigh (weight 1). Acceptance is at least 1/2.
@@ -151,10 +164,13 @@ end
 BiKappa(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), kappa, vd_para = zero(vth_para)) =
     BiKappa(vth_perp, vth_para, kappa, vd_para)
 
-function _pdf(d::BiKappa, v_perp, v_para)
+function _pdf_const(d::BiKappa)
     κ = _speed_float(d, d.kappa)
     Aperp, Apara = (κ - 3 // 2) .* (d.vth_perp^2, d.vth_para^2)
-    C = exp(loggamma(κ + 1) - loggamma(κ - 1 // 2)) / (π * Aperp * sqrt(π * Apara))
+    return (exp(loggamma(κ + 1) - loggamma(κ - 1 // 2)) / (π * Aperp * sqrt(π * Apara)), Aperp, Apara, κ)
+end
+
+function _pdf(d::BiKappa, (C, Aperp, Apara, κ), v_perp, v_para)
     return C * (1 + v_perp^2 / Aperp + (v_para - d.vd_para)^2 / Apara)^(-(κ + 1))
 end
 
@@ -207,16 +223,20 @@ function kappa_widths(d::ProductBiKappa)
     return (sqrt((1 - 1 / κperp) / (1 + σ)) * d.vth_perp, sqrt(1 - 1 / (2κpara)) * d.vth_para)
 end
 
-function _pdf(d::ProductBiKappa, v_perp, v_para)
+function _pdf_const(d::ProductBiKappa)
     κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
     θperp, θpara = kappa_widths(d)
-    x = v_perp^2 / (κperp * θperp^2)
+    Aperp, Apara = κperp * θperp^2, κpara * θpara^2
     # 1 / ∫2πv⊥ x^σ (1+x)^{-(κ+σ+1)} dv⊥ = Γ(κ+σ+1) / (πκθ² Γ(σ+1) Γ(κ))
-    Cperp = exp(loggamma(κperp + σ + 1) - loggamma(σ + 1) - loggamma(κperp)) / (π * κperp * θperp^2)
-    fperp = Cperp * x^σ * (1 + x)^(-(κperp + σ + 1))
-    Cpara = exp(loggamma(κpara + 1) - loggamma(κpara + 1 // 2)) / (sqrt(π * κpara) * θpara)
-    fpara = Cpara * (1 + (v_para - d.vd_para)^2 / (κpara * θpara^2))^(-(κpara + 1))
-    return fperp * fpara
+    Cperp = exp(loggamma(κperp + σ + 1) - loggamma(σ + 1) - loggamma(κperp)) / (π * Aperp)
+    Cpara = exp(loggamma(κpara + 1) - loggamma(κpara + 1 // 2)) / sqrt(π * Apara)
+    return (Cperp * Cpara, Aperp, Apara)
+end
+
+function _pdf(d::ProductBiKappa, (C, Aperp, Apara), v_perp, v_para)
+    κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
+    x = v_perp^2 / Aperp
+    return C * x^σ * (1 + x)^(-(κperp + σ + 1)) * (1 + (v_para - d.vd_para)^2 / Apara)^(-(κpara + 1))
 end
 
 # ⊥: x = v⊥²/(κθ²) ~ BetaPrime(σ+1, κ) = Gamma(σ+1)/Gamma(κ); ∥: Student-t with 2κ∥+1 dof
@@ -252,11 +272,14 @@ end
 DoryGuestHarris(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), loss_cone, vd_para = zero(vth_para)) =
     DoryGuestHarris(vth_perp, vth_para, loss_cone, vd_para)
 
-function _pdf(d::DoryGuestHarris, v_perp, v_para)
+function _pdf_const(d::DoryGuestHarris)
     j = _speed_float(d, d.loss_cone)
-    θ² = d.vth_perp^2 / (1 + j)
+    return (j, loggamma(j + 1), d.vth_perp^2 / (1 + j))
+end
+
+function _pdf(d::DoryGuestHarris, (j, logΓ, θ²), v_perp, v_para)
     x = v_perp^2 / θ²
-    return x^j * exp(-x - loggamma(j + 1)) / (π * θ²) * _maxwellian_para(d, v_para)
+    return x^j * exp(-x - logΓ) / (π * θ²) * _maxwellian_para(d, v_para)
 end
 
 function Random.rand(rng::AbstractRNG, d::DoryGuestHarris)
@@ -292,7 +315,7 @@ end
 SubtractedMaxwellian(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para = _isotropic_vth(vth), delta, beta, vd_para = zero(vth_para)) =
     SubtractedMaxwellian(vth_perp, vth_para, delta, beta, vd_para)
 
-function _pdf(d::SubtractedMaxwellian, v_perp, v_para)
+function _pdf(d::SubtractedMaxwellian, _, v_perp, v_para)
     Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
     a² = d.vth_perp^2 / (1 + β * (1 - Δ))
     x = v_perp^2 / a²
@@ -344,11 +367,12 @@ MaxwellJuttner(; theta) = MaxwellJuttner(theta)
 MaxwellJuttner(p::Particle; T) = MaxwellJuttner(si_energy(T) / (p.m * C_SI^2))
 
 # K₂, K₃ scaled by exp(1/θ), which cancels between the normalization and exp(-γ/θ) = exp(-(γ - 1)/θ) exp(-1/θ).
-function _pdf(d::MaxwellJuttner, v_perp, v_para)
+_pdf_const(d::MaxwellJuttner) = (θ = float(d.theta); 1 / (4 * oftype(θ, π) * convert(typeof(θ), C_SI)^3 * θ * besselkx(2, 1 / θ)))
+
+function _pdf(d::MaxwellJuttner, C, v_perp, v_para)
     θ = float(d.theta)
-    c = convert(typeof(θ), C_SI)
-    x = (v_perp^2 + v_para^2) / c^2
-    return exp(-x / (1 + sqrt(1 + x)) / θ) / (4 * oftype(θ, π) * c^3 * θ * besselkx(2, 1 / θ))
+    x = (v_perp^2 + v_para^2) / convert(typeof(θ), C_SI)^2
+    return C * exp(-x / (1 + sqrt(1 + x)) / θ)
 end
 
 # ⟨u_i²⟩ = c²θ K₃(1/θ)/K₂(1/θ)
