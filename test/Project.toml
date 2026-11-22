@@ -1,5 +1,6 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PlasmaPopulations = "19fe0aba-210f-40e6-8711-72208e0968be"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
@@ -11,5 +12,6 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 Aqua = "0.8"
+JLArrays = "0.5"
 QuadGK = "2"
 Unitful = "1"
