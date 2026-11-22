@@ -1,5 +1,6 @@
 """
     Oriented(d, B; u = 0)
+    Oriented(d; u)
 
 Field-aligned model `d` placed in the frame of magnetic field `B` and bulk velocity `u`.
 """
@@ -11,10 +12,14 @@ end
 
 # false: Bool is the weakest promoting Number, so the model's float type wins.
 Oriented(d, B; u = SVector(false, false, false)) =
-    Oriented(d, _field_aligned_basis(SVector{3}(B)), si_velocity.(SVector{3}(u)))
+    Oriented(d, _field_aligned_basis(SVector{3}(B), float(eltype(mean(d)))), si_velocity.(SVector{3}(u)))
+Oriented(d; u) = Oriented(d, I, si_velocity.(SVector{3}(u)))
 
 # Columns (e⊥₁, e⊥₂, b̂), by Duff et al. (2017): a rotation of ẑ alone is singular at b̂ = -ẑ.
-function _field_aligned_basis(B)
+# `* one(T)` promotes so integer B takes the model's float type T
+function _field_aligned_basis(B, ::Type{T}) where {T}
+    iszero(B) && throw(ArgumentError("B = $B has no direction"))
+    B = B * one(T)
     b = B / norm(B)
     s = copysign(one(b[3]), b[3])
     a = -1 / (s + b[3])

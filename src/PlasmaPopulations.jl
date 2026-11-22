@@ -5,7 +5,7 @@ import Random
 using Bessels: besselkx
 using Gamma: loggamma
 using StaticArrays: SVector, SMatrix
-using LinearAlgebra: norm, tr
+using LinearAlgebra: I, norm, tr
 import Statistics
 using Statistics: mean, cov
 
