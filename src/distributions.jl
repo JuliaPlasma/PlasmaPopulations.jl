@@ -358,6 +358,29 @@ function vth_perp_para(d::MaxwellJuttner)
     return (v, v)
 end
 
+# Kinetic energy ε = γ - 1 (units mc²) has density ∝ √ε √(ε+2) (1+ε) e^{-ε/θ}; √(ε+2) ≤ √ε + √2 bounds it by a mixture
+# of Gamma(α, θ), α = 3/2 + k/2 for k = 0:3, accepted with probability √(ε+2)/(√ε + √2) ≥ 1/√2 at every θ.
+# Gamma(α, 1) is drawn exactly as a sum of ⌊α⌋ Exp(1), plus Z²/2 for half-integer α.
+function Random.rand(rng::AbstractRNG, d::MaxwellJuttner)
+    θ = float(d.theta)
+    T = typeof(θ)
+    s2π = sqrt(2 * T(π))
+    W = cumsum((s2π / 2, sqrt(θ), 3s2π * θ / 4, 2θ * sqrt(θ)))
+    while true
+        r = rand(rng, T) * W[4]
+        k = (r ≥ W[1]) + (r ≥ W[2]) + (r ≥ W[3])
+        g = randexp(rng, T)
+        k ≥ 1 && (g += randexp(rng, T))
+        k == 3 && (g += randexp(rng, T))
+        iseven(k) && (g += randn(rng, T)^2 / 2)
+        ε = θ * g
+        rand(rng, T) * (sqrt(ε) + sqrt(T(2))) < sqrt(ε + 2) || continue
+        u = convert(T, C_SI) * sqrt(ε * (ε + 2))
+        cosϑ = 2 * rand(rng, T) - 1
+        return _with_gyrophase(rng, u * sqrt(1 - cosϑ^2), u * cosϑ, T)
+    end
+end
+
 Statistics.mean(d::MaxwellJuttner) = zero(SVector{3, typeof(float(d.theta))})
 
 # T/m per (⊥, ∥) degree of freedom, from the pressure P = n m ⟨δ𝐮 δ𝐯⟩: `cov` is its nonrelativistic limit.

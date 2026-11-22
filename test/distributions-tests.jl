@@ -215,7 +215,15 @@ end
         d = MaxwellJuttner(; theta = θ)
         @test radial(d, one) ≈ 1 rtol = 1e-8
         @test radial(d, abs2) ≈ sum(abs2, vth_perp_para(d)) * 3 / 4 rtol = 1e-8   # ⟨u²⟩ = 3⟨u_z²⟩
+        us = rand(Xoshiro(1), d, 200_000)
+        @test mean(us) ≈ mean(d) atol = 5 * vth_perp_para(d)[1] / sqrt(length(us))
+        for q in (0.5, 1.0, 2.0)
+            P = quadgk(u -> 4π * u^2 * pdf(d, u, 0.0), 0, q * vth_perp_para(d)[1])[1]
+            @test mean(u -> sqrt(sum(abs2, u)) < q * vth_perp_para(d)[1], us) ≈ P atol = 0.005
+        end
+        @test mean(u -> abs(u[3]) < sqrt(sum(abs2, u)) / 2, us) ≈ 1 / 2 atol = 0.005   # isotropic
     end
+    @test eltype(rand(MaxwellJuttner(; theta = 0.1f0))) === Float32
     nr = MaxwellJuttner(; theta = 1e-6)
     @test pdf(nr, 0.3c * 1e-3, 0.2c * 1e-3) ≈ pdf(BiMaxwellian(; vth = c * sqrt(2e-6)), 0.3c * 1e-3, 0.2c * 1e-3) rtol = 1e-4
     @test MaxwellJuttner(Electron; T = 511u"keV").theta ≈ 1 rtol = 1e-3
