@@ -219,12 +219,12 @@ function kappa_widths(d::BiKappa)
 end
 
 function kappa_widths(d::ProductBiKappa)
-    κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
+    κperp, κpara, σ = _speed_float.(d, (d.kappa_perp, d.kappa_para, d.loss_cone))
     return (sqrt((1 - 1 / κperp) / (1 + σ)) * d.vth_perp, sqrt(1 - 1 / (2κpara)) * d.vth_para)
 end
 
 function _pdf_const(d::ProductBiKappa)
-    κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
+    κperp, κpara, σ = _speed_float.(d, (d.kappa_perp, d.kappa_para, d.loss_cone))
     θperp, θpara = kappa_widths(d)
     Aperp, Apara = κperp * θperp^2, κpara * θpara^2
     # 1 / ∫2πv⊥ x^σ (1+x)^{-(κ+σ+1)} dv⊥ = Γ(κ+σ+1) / (πκθ² Γ(σ+1) Γ(κ))
@@ -234,14 +234,14 @@ function _pdf_const(d::ProductBiKappa)
 end
 
 function _pdf(d::ProductBiKappa, (C, Aperp, Apara), v_perp, v_para)
-    κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
+    κperp, κpara, σ = _speed_float.(d, (d.kappa_perp, d.kappa_para, d.loss_cone))
     x = v_perp^2 / Aperp
     return C * x^σ * (1 + x)^(-(κperp + σ + 1)) * (1 + (v_para - d.vd_para)^2 / Apara)^(-(κpara + 1))
 end
 
 # ⊥: x = v⊥²/(κθ²) ~ BetaPrime(σ+1, κ) = Gamma(σ+1)/Gamma(κ); ∥: Student-t with 2κ∥+1 dof
 function Random.rand(rng::AbstractRNG, d::ProductBiKappa)
-    κperp, κpara, σ = _speed_float.(Ref(d), (d.kappa_perp, d.kappa_para, d.loss_cone))
+    κperp, κpara, σ = _speed_float.(d, (d.kappa_perp, d.kappa_para, d.loss_cone))
     T = typeof(κperp)
     θperp, θpara = kappa_widths(d)
     v_perp = θperp * sqrt(κperp * _rand_gamma(rng, σ + 1) / _rand_gamma(rng, κperp))
@@ -316,7 +316,7 @@ SubtractedMaxwellian(; vth = nothing, vth_perp = _isotropic_vth(vth), vth_para =
     SubtractedMaxwellian(vth_perp, vth_para, delta, beta, vd_para)
 
 function _pdf(d::SubtractedMaxwellian, _, v_perp, v_para)
-    Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
+    Δ, β = _speed_float.(d, (d.delta, d.beta))
     a² = d.vth_perp^2 / (1 + β * (1 - Δ))
     x = v_perp^2 / a²
     fperp = exp(-x) * (Δ - (1 - Δ) * expm1(x - x / β) / (1 - β)) / (π * a²)
@@ -325,7 +325,7 @@ end
 
 # The loss-cone part of x = v⊥²/a⊥², (e^{-x} - e^{-x/β})/(1 - β), is the density of Exp(1) + β·Exp(1).
 function Random.rand(rng::AbstractRNG, d::SubtractedMaxwellian)
-    Δ, β = _speed_float.(Ref(d), (d.delta, d.beta))
+    Δ, β = _speed_float.(d, (d.delta, d.beta))
     T = typeof(β)
     x = randexp(rng, T)
     rand(rng, T) < Δ || (x += β * randexp(rng, T))
