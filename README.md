@@ -56,6 +56,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `Oriented(vdf, 𝐁; u = 0)` | `vdf` in the frame of vectors `𝐁`, `u` |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |
 | `pdf(vdf, 𝐯)`, `pdf(vdf, v_perp, v_para)` | density at velocity `𝐯` or, if gyrotropic, speeds; normalized to `∫ f d³v = 1` |
+| `pdf(vdf)` | `pdf(vdf, ·)` as a function, faster over many velocities: `pdf(vdf).(vs)` |
 | `kappa_widths(d)` | `(θ⊥, θ∥)` of `BiKappa`, `ProductBiKappa` in the forms `v²/(κθ²)` |
 | `si_number_density`, `si_magnetic_field`, `si_velocity`, `si_frequency`, `si_charge`, `si_mass`, `si_energy`, `si_phase_space_density` | input adapters to bare SI (energy: eV → J) |
 | `C_SI`, `E_SI`, `ME_SI`, `MP_SI`, `U_SI`, `EPS0_SI`, `MU0_SI`, `KB_SI` | CODATA 2018 constants [SI] |

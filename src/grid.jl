@@ -48,7 +48,7 @@ function _hat_weights(g, x::AbstractVector{T}) where {T}
     return w
 end
 
-function _pdf(d::GridVDF, v_perp, v_para)
+function _pdf(d::GridVDF, _, v_perp, v_para)
     x, y, f = d.v_perp, d.v_para, d.f
     a, b = abs(v_perp), v_para
     R = typeof(zero(eltype(f)) * zero(a) * zero(b) / d.n)
