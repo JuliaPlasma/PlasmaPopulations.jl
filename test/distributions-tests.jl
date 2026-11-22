@@ -66,6 +66,10 @@ end
     @test pdf(o, [1000.0, 0.0, 0.5]u"m/s") ≈ pdf(d, 0.0, 0.5)
     @test size(rand(o, 2, 3)) == (2, 3)
     @test eltype(rand(Oriented(BiMaxwellian(; vth = 1.0f0), Float32[0, 0, 1]))) === Float32
+    @test pdf(Oriented(BiMaxwellian(; vth = 1.0f0), (1, 0, 0)), (0.1f0, 0.2f0, 0.3f0)) isa Float32
+    @test_throws ArgumentError Oriented(d, (0, 0, 0))
+    o = Oriented(d; u)
+    @test pdf(o, [0.3, -1.1, 0.7] + u) ≈ pdf(d, [0.3, -1.1, 0.7])
 end
 
 @testset "B0 is a magnitude or a vector" begin
