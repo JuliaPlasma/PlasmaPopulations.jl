@@ -1,5 +1,5 @@
 using PlasmaPopulations, Test
-using LinearAlgebra, QuadGK, Random, SpecialFunctions, Statistics, Unitful
+using JLArrays, LinearAlgebra, QuadGK, Random, SpecialFunctions, Statistics, Unitful
 using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed,
     temperature_perp_para, plasma_beta, agyrotropy, charge_density, current_density, E_SI, MU0_SI
 
@@ -196,6 +196,13 @@ end
     F = [3.0 * pdf(m, v, u) for v in v_perp, u in v_para]
     g = GridVDF(v_perp, v_para, F)
     @test g.n ≈ 3 rtol = 1e-3
+    gm = GridVDF(v_perp, collect(v_para), F)
+    @test gm.v_perp isa AbstractRange && gm.v_para isa Vector && pdf(gm, 1.0, 0.5) ≈ pdf(g, 1.0, 0.5)
+    gd = GridVDF(JLArray(collect(v_perp)), JLArray(collect(v_para)), JLArray(F))  # JLArray mimics a GPU
+    vs, us = 9 * rand(20), 12 * rand(20) .- 6  # some outside the grid
+    @test gd.n ≈ g.n && mean(gd) ≈ mean(g) && Array(pdf.(gd, JLArray(vs), JLArray(us))) ≈ pdf.(g, vs, us)
+    g32 = GridVDF(Float32.(v_perp), Float32.(v_para), Float32.(F))  # e.g. Metal has no Float64
+    @test g32.n isa Float32 && pdf(g32, 1.0f0, 0.5f0) isa Float32
     @test mean(g) ≈ mean(m) atol = 1e-4
     @test all(isapprox.(vth_perp_para(g), vth_perp_para(m); rtol = 1e-3))
     @test pdf(g, v_perp[5], v_para[7]) ≈ F[5, 7] / g.n
