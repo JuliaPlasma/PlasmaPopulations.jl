@@ -22,6 +22,9 @@ using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_w
         @test vpara2 ≈ vth_para^2 / 2 rtol = 1e-3
         @test pdf(d, -0.8, 0.3) == pdf(d, 0.8, 0.3)
     end
+    beam = BiMaxwellian(; vth_perp = Int32(100_000), vth_para = Int32(50_000))
+    @test vth_perp_para(beam, [3, 0, 4]u"nT") == vth_perp_para(beam)
+    @test diag(cov(beam)) == [5e9, 5e9, 1.25e9]
     @test vth_perp_para(Cold(; vd_para = 1.0)) == (0.0, 0.0)
     @test mean(Cold(; vd_para = 1.0)) == [0, 0, 1]
     @test vth_perp_para(GaussianRing(; vr_perp = 2.0, w_perp = 1.0e-6, vth_para = 1.0))[1] ≈ 2
@@ -60,14 +63,14 @@ end
         xs = rand(Xoshiro(1), o, 200_000)
         @test mean(xs) ≈ mean(o) atol = 0.02
         @test cov(reduce(hcat, xs); dims = 2) ≈ cov(o) rtol = 0.02
-        @test vth_perp_para(o) == vth_perp_para(d)
+        @test all(vth_perp_para(o, B) .≈ vth_perp_para(d))
     end
     o = Oriented(d, [0.0, 0.0, 5.0]u"nT"; u = [1.0, 0.0, 0.0]u"km/s")
     @test pdf(o, [1000.0, 0.0, 0.5]u"m/s") ≈ pdf(d, 0.0, 0.5)
     @test size(rand(o, 2, 3)) == (2, 3)
     @test eltype(rand(Oriented(BiMaxwellian(; vth = 1.0f0), Float32[0, 0, 1]))) === Float32
     @test pdf(Oriented(BiMaxwellian(; vth = 1.0f0), (1, 0, 0)), (0.1f0, 0.2f0, 0.3f0)) isa Float32
-    @test_throws ArgumentError Oriented(d, (0, 0, 0))
+    @test_throws DomainError Oriented(d, (0, 0, 0))
     # A transverse drift tells rotations about the axis apart: ẑ → x̂ is about ŷ on both sides of the equator.
     drifting = Oriented(Cold(); u = (1, 2, 3))
     for z in (1.0e-9, -0.0, -1.0e-9)
@@ -76,6 +79,12 @@ end
     @test mean(Oriented(drifting, (0, 0, -1))) ≈ [1, -2, -3]
     R = Oriented(BiMaxwellian(; vth = 1.0f0), Float32[1.0e-3, 2.0e-3, -1]).basis
     @test norm(R' * R - I) < 1.0f-6  # no cancellation near -ẑ
+    # Equal field components sample one third of each principal variance, for either polarity.
+    lab = Oriented(BiMaxwellian(; vth_perp = Float16(1), vth_para = Float16(4)))
+    B = Float16[1e-5, 1e-5, -1e-5]
+    for field in (B, -B)
+        @test all(isapprox.(vth_perp_para(lab, field), sqrt(6); rtol = 0.005))
+    end
     o = Oriented(d; u)
     @test pdf(o, [0.3, -1.1, 0.7] + u) ≈ pdf(d, [0.3, -1.1, 0.7])
     @test mean(Oriented(d)) == mean(d)
@@ -189,6 +198,16 @@ end
     plasma = Plasma(ions, Population(Electron, BiMaxwellian; T = 50, vd_para = 1.0e5, n = 5.0e6); B0 = 5.0e-9)
     @test all(temperature_perp_para(ions) .≈ (100, 20))
     @test all(temperature_perp_para(Population(Electron, MaxwellJuttner; T = 511.0e3, n = 1.0)) .≈ 511.0e3)
+    @test all(temperature_perp_para(Population(Electron, Oriented(MaxwellJuttner(Electron; T = 511.0e3), [1, 2, 3]); n = 1.0), [3, 1, 0]) .≈ 511.0e3)
+    @test all(plasma_beta(Plasma(plasma.populations...; B0 = [5, 0, 0]u"nT")) .≈ plasma_beta(plasma))  # gyrotropic: aligned with any B
+    tilted = Population(Proton, Oriented(ions.vdf, [1, 0, 0]); ions.n)
+    @test_throws ArgumentError temperature_perp_para(tilted)  # axis need not be the field
+    @test all(temperature_perp_para(tilted, 5u"nT") .≈ (60, 100))
+    mixed = Plasma(ions, tilted; B0 = 5u"nT")
+    @test all(plasma_beta(mixed) .≈ 2MU0_SI * ions.n * E_SI .* (160, 120) ./ 25.0e-18)
+    @test_throws DomainError temperature_perp_para(ions, 0)  # even where the axis is unused
+    # rotated in the model frame, so a small variance survives
+    @test all(vth_perp_para(Oriented(BiMaxwellian(; vth_perp = 1f0, vth_para = 1f-4), (1, 2, 3)), (1, 2, 3)) .≈ (1f0, 1f-4))
     @test all(plasma_beta(ions, plasma.B0) .≈ 2MU0_SI * 5.0e6 * E_SI .* (100, 20) ./ 25.0e-18)
     @test all(plasma_beta(plasma) .≈ 2MU0_SI * 5.0e6 * E_SI .* (150, 70) ./ 25.0e-18)
     @test charge_density(plasma) == 0
@@ -200,6 +219,9 @@ end
 @testset "agyrotropy" begin
     # rotated field-aligned P⊥ = 1, P∥ = 2, P₁₂ = a: √Q = a / √(P⊥² + 2P⊥P∥)
     R = [1 0 0; 0 cosd(50) -sind(50); 0 sind(50) cosd(50)]
+    P = [1 0 0; 0 2 0; 0 0 3]
+    @test agyrotropy(P, 5u"nT") ≈ agyrotropy(P, (0, 0, 5))
+    @test agyrotropy(Float32.(P), 5) isa Float32
     for a in (0, 0.3)
         @test agyrotropy(R * [1 a 0; a 1 0; 0 0 2] * R', R * [0, 0, 3]) ≈ a / sqrt(5) atol = 1.0e-7
     end
@@ -243,6 +265,8 @@ end
     @test g.n ≈ 3 rtol = 1e-3
     @test mean(g) ≈ mean(o) atol = 1e-3
     @test cov(g) ≈ cov(o) rtol = 1e-2
+    @test all(isapprox.(vth_perp_para(g, [2, 0, 2]), (1.3, 0.7); rtol = 1e-2))  # g's axes are the lab's
+    @test_throws ArgumentError vth_perp_para(g)  # lab ẑ need not be the field
     @test pdf(g, [0.0, 0.0, 7.0]) == 0
     # trilinear interpolant, and its integral, exact for multilinear f on a nonuniform grid
     fl(v) = 1 + v[1] + 2v[2] + 3v[3] + v[1] * v[2] * v[3]

@@ -26,10 +26,12 @@ _pdf(d, c, v_perp, v_para) = throw(MethodError(pdf, (d, v_perp, v_para)))
 pdf(d::AbstractVDF, v) = isgyrotropic(d) ? pdf(d)(v) : throw(MethodError(pdf, (d, v)))
 
 Statistics.cov(d::AbstractVDF) = isgyrotropic(d) ? _gyrotropic_cov(vth_perp_para(d)...) : throw(MethodError(cov, (d,)))
-vth_perp_para(d::AbstractVDF) = isgyrotropic(d) ? throw(MethodError(vth_perp_para, (d,))) : _vth_perp_para(cov(d))
+# Without a field, (⊥, ∥) is about the model's ẑ, the field axis only for gyrotropic models.
+vth_perp_para(d::AbstractVDF) = isgyrotropic(d) ? throw(MethodError(vth_perp_para, (d,))) : _no_axis(d)
+_no_axis(d) = throw(ArgumentError("$(nameof(typeof(d))) has no field axis of its own; pass the field"))
 
 function _gyrotropic_cov(vth_perp, vth_para)
-    a, b = vth_perp^2 / 2, vth_para^2 / 2
+    a, b = (vth_perp / 2) * vth_perp, (vth_para / 2) * vth_para
     z = zero(a)
     return SMatrix{3, 3}(a, z, z, z, a, z, z, z, b)
 end
@@ -412,7 +414,7 @@ Statistics.mean(d::MaxwellJuttner) = zero(SVector{3, typeof(float(d.theta))})
 # T/m tensor, from the pressure P = n m ⟨δ𝐮 δ𝐯⟩: `cov` is its nonrelativistic limit.
 _temperature_tensor(d) = cov(d)
 _temperature_tensor(d::MaxwellJuttner) = SMatrix{3, 3}(convert(typeof(float(d.theta)), C_SI)^2 * d.theta * I)
-_temperature_per_mass(d) = _perp_para(_temperature_tensor(d))
+_temperature_per_mass(d) = isgyrotropic(d) ? _perp_para(_temperature_tensor(d)) : _no_axis(d)
 
 const _FieldAligned = Union{_MomentVth, GaussianRing, Cold}
 isgyrotropic(::Type{<:Union{_FieldAligned, MaxwellJuttner}}) = true
