@@ -48,7 +48,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `SubtractedMaxwellian(; vth_perp, vth_para, delta, beta, vd_para = 0)` | Maxwellian loss cone: a narrower Maxwellian subtracted, fill `delta`, width ratio `beta` |
 | `Cold(; vd_para = 0)` | zero-temperature limit |
 | `MaxwellJuttner(; theta)` | relativistic Maxwellian `f ∝ exp(-γ/θ)` of temperature `θ = T/(mc²)` |
-| `GridVDF(v_perp, v_para, f)` | tabulated `f[i, j]`, bilinear and zero outside the grid; field `n = ∫ f d³v`, e.g. phase-space density → `Population(particle, d; d.n)` |
+| `GyrotropicGridVDF(v_perp, v_para, f)` | tabulated `f[i, j]`, bilinear and zero outside the grid; field `n = ∫ f d³v`, e.g. phase-space density → `Population(particle, d; d.n)` |
 | `Statistics.mean(vdf)`, `Statistics.cov(vdf)` | mean velocity; velocity covariance `⟨(𝐯 - ⟨𝐯⟩)(𝐯 - ⟨𝐯⟩)ᵀ⟩` |
 | `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
 | `isgyrotropic(vdf)` | whether `vdf` is gyrotropic about $𝐁$ |
