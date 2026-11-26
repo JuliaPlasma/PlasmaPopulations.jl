@@ -25,8 +25,9 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
   Unitful inputs are converted to SI at construction.
 - Velocities are momenta per mass `𝐮 = γ𝐯 = 𝐩/m`.
 - Bare gyrotropic models use field-aligned velocities. `Oriented` and `CartesianGridVDF` use lab coordinates.
-- A field vector gives the lab-frame parallel axis; a scalar is `|B|` along lab `+ẑ` (sign ignored). Zero field leaves velocities in the model’s own coordinates.
-- Thermal speeds are moments for every model: `vth_perp² = ⟨v⊥²⟩` and `vth_para² = 2⟨(v∥ - vd_para)²⟩`, so `T = m vth²/2`, except `MaxwellJuttner`'s exact `T = θmc²`.
+- A vector B field sets the parallel axis. A scalar gives `|B|` along lab `+ẑ`.
+- `(⊥, ∥)` components reject zero fields. Only bare gyrotropic models allow the field to be omitted. At zero field, `current_density` takes bare gyrotropic drifts along lab z.
+- With `δ𝐯 = 𝐯 − ⟨𝐯⟩`, thermal speeds satisfy `vth_perp² = ⟨|δ𝐯⊥|²⟩` and `vth_para² = 2⟨δv∥²⟩`. Temperature is `T = m vth²/2`, except for `MaxwellJuttner` (`T = θmc²`).
 - Constructors take keywords named after the fields, plus `vth` for `vth_perp = vth_para`.
   `V(particle; kw...)` also accepts `T`, `T_perp`, `T_para` in place of `vth`, `vth_perp`, `vth_para`, for models with those parameters.
 
@@ -51,7 +52,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `GyrotropicGridVDF(v_perp, v_para, f)` | tabulated `f[i, j]`, bilinear and zero outside the grid; field `n = ∫ f d³v`, e.g. phase-space density → `Population(particle, d; d.n)` |
 | `CartesianGridVDF(vx, vy, vz, f)` | tabulated `f[i, j, k]`, trilinear and zero outside the grid; field `n = ∫ f d³v` |
 | `Statistics.mean(vdf)`, `Statistics.cov(vdf)` | mean velocity; velocity covariance `⟨(𝐯 - ⟨𝐯⟩)(𝐯 - ⟨𝐯⟩)ᵀ⟩` |
-| `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
+| `vth_perp_para(vdf[, B])` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
 | `rand([rng,] vdf[, dims])` | samples `[v₁, v₂, v₃]` |
 | `Oriented(vdf[, axis]; u)` | rotate the model’s `ẑ` to `axis` (default: lab `ẑ`), then add lab velocity `u` (default zero) |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |
@@ -66,7 +67,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `inertial_length(particle, n)` | $c/ω_p$ [m] |
 | `debye_length(particle, n, T)` | $\sqrt{ε₀T/(n q²)}$ [m] |
 | `mass_density(plasma)`, `alfven_speed(plasma)` | total `Σ nm` [kg/m³], `\|B₀\|/√(μ₀ρ)` with `ρ` over charged populations [m/s] |
-| `temperature_perp_para(population)` | `(T⊥, T∥)` [eV] |
+| `temperature_perp_para(population[, B])` | `(T⊥, T∥)` [eV] |
 | `plasma_beta(population, B)`, `plasma_beta(plasma)` | `(β⊥, β∥) = 2μ₀nT/B²`, summed over charged populations |
 | `agyrotropy(P, B)` | `√Q` of a 3×3 pressure (or temperature, covariance) tensor about `𝐁` (Swisdak 2016): 0 if gyrotropic, 1 at most |
 | `charge_density(plasma)`, `current_density(plasma)` | `Σ nq` [C/m³], `Σ nq⟨𝐯⟩` [A/m²] |

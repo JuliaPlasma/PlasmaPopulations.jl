@@ -5,7 +5,7 @@ import Random
 using Bessels: besselkx
 using Gamma: loggamma
 using StaticArrays: SVector, SMatrix
-using LinearAlgebra: I, norm, tr
+using LinearAlgebra: I, norm, normalize, tr
 import Statistics
 using Statistics: mean, cov
 
@@ -42,13 +42,18 @@ alfven_speed(plasma::Plasma) =
     norm(plasma.B0) / sqrt(MU0_SI * sum(s -> !iszero(s.particle.q) * s.n * s.particle.m, plasma.populations))
 
 temperature_perp_para(s::Population) = s.particle.m .* _temperature_per_mass(s.vdf) ./ E_SI
-plasma_beta(s::Population, B) = (2 * MU0_SI * s.n * s.particle.m / norm(si_magnetic_field(B))^2) .* _temperature_per_mass(s.vdf)
+temperature_perp_para(s::Population, B) = s.particle.m .* _temperature_per_mass(s.vdf, _field_si(B)) ./ E_SI
+function plasma_beta(s::Population, B)
+    B_si = _field_si(B)
+    T = _temperature_per_mass(s.vdf, B_si)
+    return (2 * MU0_SI * s.n * s.particle.m / norm(B_si)^2) .* T
+end
 plasma_beta(plasma::Plasma) =
     mapreduce(s -> !iszero(s.particle.q) .* plasma_beta(s, plasma.B0), (a, b) -> a .+ b, plasma.populations)
 
 # Swisdak (2016) √Q in rotation invariants.
 function agyrotropy(P, B)
-    b = B / norm(B)
+    b = normalize(_field_axis(_field_si(B), float(eltype(P))))
     Ppara = b' * P * b
     I₁ = tr(P)
     I₂ = P[1, 1] * P[2, 2] + P[1, 1] * P[3, 3] + P[2, 2] * P[3, 3] - P[1, 2] * P[2, 1] - P[1, 3] * P[3, 1] - P[2, 3] * P[3, 2]
