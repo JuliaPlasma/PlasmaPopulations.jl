@@ -54,7 +54,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
 | `isgyrotropic(vdf)` | whether `vdf` supports the gyrotropic `(v_perp, v_para)` interface |
 | `rand([rng,] vdf[, dims])` | samples `[v₁, v₂, v₃]` |
-| `Oriented(vdf, 𝐁; u = 0)`, `Oriented(vdf; u)` | `vdf` in the frame of vectors `𝐁`, `u`; without `𝐁`, `vdf`'s `ẑ` is the lab `ẑ` |
+| `Oriented(vdf[, axis]; u)` | rotate the model’s `ẑ` to `axis` (default: lab `ẑ`), then add lab velocity `u` (default zero) |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |
 | `pdf(vdf, 𝐯)`, `pdf(vdf, v_perp, v_para)` | density at velocity `𝐯` or, if gyrotropic, speeds; normalized to `∫ f d³v = 1` |
 | `pdf(vdf)` | `pdf(vdf, ·)` as a function, faster over many velocities: `pdf(vdf).(vs)` |
