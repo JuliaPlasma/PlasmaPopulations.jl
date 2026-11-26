@@ -49,9 +49,10 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `Cold(; vd_para = 0)` | zero-temperature limit |
 | `MaxwellJuttner(; theta)` | relativistic Maxwellian `f ∝ exp(-γ/θ)` of temperature `θ = T/(mc²)` |
 | `GyrotropicGridVDF(v_perp, v_para, f)` | tabulated `f[i, j]`, bilinear and zero outside the grid; field `n = ∫ f d³v`, e.g. phase-space density → `Population(particle, d; d.n)` |
+| `CartesianGridVDF(vx, vy, vz, f)` | tabulated `f[i, j, k]`, trilinear and zero outside the grid; field `n = ∫ f d³v` |
 | `Statistics.mean(vdf)`, `Statistics.cov(vdf)` | mean velocity; velocity covariance `⟨(𝐯 - ⟨𝐯⟩)(𝐯 - ⟨𝐯⟩)ᵀ⟩` |
 | `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
-| `isgyrotropic(vdf)` | whether `vdf` is gyrotropic about $𝐁$ |
+| `isgyrotropic(vdf)` | whether `vdf` supports the gyrotropic `(v_perp, v_para)` interface |
 | `rand([rng,] vdf[, dims])` | samples `[v₁, v₂, v₃]` |
 | `Oriented(vdf, 𝐁; u = 0)`, `Oriented(vdf; u)` | `vdf` in the frame of vectors `𝐁`, `u`; without `𝐁`, `vdf`'s `ẑ` is the lab `ẑ` |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |

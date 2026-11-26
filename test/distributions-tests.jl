@@ -207,6 +207,8 @@ end
     @test gd.n ≈ g.n && mean(gd) ≈ mean(g) && Array(pdf.(gd, JLArray(vs), JLArray(us))) ≈ pdf.(g, vs, us)
     g32 = GyrotropicGridVDF(Float32.(v_perp), Float32.(v_para), Float32.(F))  # e.g. Metal has no Float64
     @test g32.n isa Float32 && pdf(g32, 1.0f0, 0.5f0) isa Float32
+    coldbeam = GyrotropicGridVDF(Float32[0, 1], Float32[1e7, 1e7 + 1], ones(Float32, 2, 2))
+    @test last(vth_perp_para(coldbeam)) ≈ sqrt(1f0 / 6)
     @test mean(g) ≈ mean(m) atol = 1e-4
     @test all(isapprox.(vth_perp_para(g), vth_perp_para(m); rtol = 1e-3))
     @test pdf(g, v_perp[5], v_para[7]) ≈ F[5, 7] / g.n
@@ -220,6 +222,42 @@ end
     @test_throws ArgumentError GyrotropicGridVDF(reverse(v_perp), v_para, F)
     @test_throws DomainError GyrotropicGridVDF(v_perp .- 1, v_para, F)
     @test PlasmaPopulations.GridVDF === GyrotropicGridVDF
+end
+
+@testset "CartesianGridVDF tabulates a 3-D distribution" begin
+    o = Oriented(BiMaxwellian(; vth_perp = 1.3, vth_para = 0.7), [1.0, 0.0, 1.0]; u = [0.4, -0.2, 0.1])
+    vx, vy, vz = range(-6, 6, 97), range(-6, 6, 89), range(-6, 6, 81)
+    F = [3.0 * pdf(o, [a, b, c]) for a in vx, b in vy, c in vz]
+    g = CartesianGridVDF(vx, vy, vz, F)
+    @test g.n ≈ 3 rtol = 1e-3
+    @test mean(g) ≈ mean(o) atol = 1e-3
+    @test cov(g) ≈ cov(o) rtol = 1e-2
+    @test pdf(g, [0.0, 0.0, 7.0]) == 0
+    # trilinear interpolant, and its integral, exact for multilinear f on a nonuniform grid
+    fl(v) = 1 + v[1] + 2v[2] + 3v[3] + v[1] * v[2] * v[3]
+    xs, ys, zs = [0.0, 0.5, 2.0], [0.0, 1.0], [0.0, 0.3, 1.0]
+    lin = CartesianGridVDF(xs, ys, zs, [fl((a, b, c)) for a in xs, b in ys, c in zs])
+    @test lin.n ≈ 9.5
+    @test pdf(lin)([1.3, 0.4, 0.7]) * lin.n ≈ fl((1.3, 0.4, 0.7))
+    # and its moments: ∫ vx^a vy^b vz^c fl over [0, 2] × [0, 1] × [0, 1]
+    terms = ((1, (0, 0, 0)), (1, (1, 0, 0)), (2, (0, 1, 0)), (3, (0, 0, 1)), (1, (1, 1, 1)))
+    box(e) = sum(c * prod(L^(p + q + 1) / (p + q + 1) for (L, p, q) in zip((2, 1, 1), e, t)) for (c, t) in terms)
+    unit(i) = ntuple(==(i), 3)
+    μ = [box(unit(i)) / lin.n for i in 1:3]
+    @test mean(lin) ≈ μ
+    @test cov(lin) ≈ [box(unit(i) .+ unit(j)) / lin.n - μ[i] * μ[j] for i in 1:3, j in 1:3]
+    gd = CartesianGridVDF(JLArray(collect(vx)), JLArray(collect(vy)), JLArray(collect(vz)), JLArray(F))
+    @test gd.n ≈ g.n && mean(gd) ≈ mean(g)
+    g32 = CartesianGridVDF(Float32.(vx), Float32.(vy), Float32.(vz), Float32.(F))
+    @test g32.n isa Float32 && pdf(g32, Float32[1, 0, 0]) isa Float32 && eltype(cov(g32)) == Float32
+    # A unit cube one Float32 ulp wide along x still has the variance of a unit cube.
+    unit_axis = Float32[0, 1]
+    cube = CartesianGridVDF(unit_axis .+ 1f7, unit_axis, unit_axis, ones(Float32, 2, 2, 2))
+    @test cov(cube) ≈ Matrix{Float32}(I, 3, 3) / 12
+    @test_throws DimensionMismatch CartesianGridVDF(vy, vx, vz, F)
+    @test_throws ArgumentError CartesianGridVDF(vx, vy, vz, zero(F))
+    @test_throws ArgumentError CartesianGridVDF(vx, vy, vz, -F)
+    @test_throws ArgumentError CartesianGridVDF(unit_axis, unit_axis, unit_axis, fill(Inf, 2, 2, 2))
 end
 
 @testset "MaxwellJuttner" begin
