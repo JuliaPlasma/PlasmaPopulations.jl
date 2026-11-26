@@ -144,7 +144,7 @@ _pdf(d::GyrotropicGridVDF, _, v_perp, v_para) = _interp(d, (abs(v_perp), v_para)
 pdf(d::CartesianGridVDF, v) = _interp(d, (si_velocity(v[1]), si_velocity(v[2]), si_velocity(v[3])))
 
 isgyrotropic(::Type{<:GyrotropicGridVDF}) = true
-Statistics.mean(d::GyrotropicGridVDF) = _mean_para(only(_moments(d, (one,), (identity,))))
+Statistics.mean(d::GyrotropicGridVDF) = _along_z(only(_moments(d, (one,), (identity,))))
 function vth_perp_para(d::GyrotropicGridVDF)
     vd = only(_moments(d, (one,), (identity,)))
     M = _moments(d, (one, abs2), (one, identity, abs2); origins = (zero(vd), vd))

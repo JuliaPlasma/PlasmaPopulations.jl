@@ -33,7 +33,9 @@ function _gyrotropic_cov(vth_perp, vth_para)
     z = zero(a)
     return SMatrix{3, 3}(a, z, z, z, a, z, z, z, b)
 end
-_vth_perp_para(C) = (sqrt(C[1, 1] + C[2, 2]), sqrt(2 * C[3, 3]))
+# (⊥, ∥) per degree of freedom of a tensor `M` about ẑ
+_perp_para(M) = ((M[1, 1] + M[2, 2]) / 2, M[3, 3])
+_vth_perp_para(C) = sqrt.(2 .* _perp_para(C))
 
 # A plain `sqrt(π)`, `π^p` or integer `κ` would widen the speeds' float type, or cap its precision.
 _speed_float(d, x) = x * one(float(d.vth_para))
@@ -407,15 +409,16 @@ end
 
 Statistics.mean(d::MaxwellJuttner) = zero(SVector{3, typeof(float(d.theta))})
 
-# T/m per (⊥, ∥) degree of freedom, from the pressure P = n m ⟨δ𝐮 δ𝐯⟩: `cov` is its nonrelativistic limit.
-_temperature_per_mass(d) = vth_perp_para(d) .^ 2 ./ 2
-_temperature_per_mass(d::MaxwellJuttner) = (c2θ = convert(typeof(float(d.theta)), C_SI)^2 * d.theta; (c2θ, c2θ))
+# T/m tensor, from the pressure P = n m ⟨δ𝐮 δ𝐯⟩: `cov` is its nonrelativistic limit.
+_temperature_tensor(d) = cov(d)
+_temperature_tensor(d::MaxwellJuttner) = SMatrix{3, 3}(convert(typeof(float(d.theta)), C_SI)^2 * d.theta * I)
+_temperature_per_mass(d) = _perp_para(_temperature_tensor(d))
 
 const _FieldAligned = Union{_MomentVth, GaussianRing, Cold}
 isgyrotropic(::Type{<:Union{_FieldAligned, MaxwellJuttner}}) = true
-Statistics.mean(d::_FieldAligned) = _mean_para(d.vd_para)
+Statistics.mean(d::_FieldAligned) = _along_z(d.vd_para)
 vth_perp_para(d::_MomentVth) = (d.vth_perp, d.vth_para)
-_mean_para(vd) = SVector(zero(vd), zero(vd), vd)
+_along_z(z) = SVector(zero(z), zero(z), z)
 
 # Marsaglia & Tsang (2000) Gamma(α, 1) sampler, α ≥ 1; the Z⁴ squeeze accepts ~98% of draws without the logs.
 function _rand_gamma(rng::AbstractRNG, α::T) where {T}
