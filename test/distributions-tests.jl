@@ -194,18 +194,18 @@ end
     end
 end
 
-@testset "GridVDF tabulates a gyrotropic distribution" begin
+@testset "GyrotropicGridVDF tabulates a gyrotropic distribution" begin
     m = BiMaxwellian(; vth_perp = 1.3, vth_para = 0.7, vd_para = 0.4)
     v_perp, v_para = range(0, 8, 321), range(-5, 5, 401)
     F = [3.0 * pdf(m, v, u) for v in v_perp, u in v_para]
-    g = GridVDF(v_perp, v_para, F)
+    g = GyrotropicGridVDF(v_perp, v_para, F)
     @test g.n ≈ 3 rtol = 1e-3
-    gm = GridVDF(v_perp, collect(v_para), F)
+    gm = GyrotropicGridVDF(v_perp, collect(v_para), F)
     @test gm.v_perp isa AbstractRange && gm.v_para isa Vector && pdf(gm, 1.0, 0.5) ≈ pdf(g, 1.0, 0.5)
-    gd = GridVDF(JLArray(collect(v_perp)), JLArray(collect(v_para)), JLArray(F))  # JLArray mimics a GPU
+    gd = GyrotropicGridVDF(JLArray(collect(v_perp)), JLArray(collect(v_para)), JLArray(F))  # JLArray mimics a GPU
     vs, us = 9 * rand(20), 12 * rand(20) .- 6  # some outside the grid
     @test gd.n ≈ g.n && mean(gd) ≈ mean(g) && Array(pdf.(gd, JLArray(vs), JLArray(us))) ≈ pdf.(g, vs, us)
-    g32 = GridVDF(Float32.(v_perp), Float32.(v_para), Float32.(F))  # e.g. Metal has no Float64
+    g32 = GyrotropicGridVDF(Float32.(v_perp), Float32.(v_para), Float32.(F))  # e.g. Metal has no Float64
     @test g32.n isa Float32 && pdf(g32, 1.0f0, 0.5f0) isa Float32
     @test mean(g) ≈ mean(m) atol = 1e-4
     @test all(isapprox.(vth_perp_para(g), vth_perp_para(m); rtol = 1e-3))
@@ -213,12 +213,13 @@ end
     @test pdf(g, -(v_perp[5] + v_perp[6]) / 2, v_para[7]) ≈ (F[5, 7] + F[6, 7]) / 2g.n
     @test pdf(g, 1.0, 6.0) == 0
     # density of the interpolant: exact for f linear in v⊥ and v∥
-    lin = GridVDF([0.0, 2.0], [-1.0, 1.0], [1.0 1.0; 3.0 3.0])
+    lin = GyrotropicGridVDF([0.0, 2.0], [-1.0, 1.0], [1.0 1.0; 3.0 3.0])
     @test lin.n ≈ 2π * 2 * (2 + 8 / 3)
-    @test GridVDF(v_perp .* u"m/s", v_para .* u"m/s", F .* u"s^3/cm^6").n ≈ 3e12 rtol = 1e-3
-    @test_throws DimensionMismatch GridVDF(v_perp, v_para, F')
-    @test_throws ArgumentError GridVDF(reverse(v_perp), v_para, F)
-    @test_throws DomainError GridVDF(v_perp .- 1, v_para, F)
+    @test GyrotropicGridVDF(v_perp .* u"m/s", v_para .* u"m/s", F .* u"s^3/cm^6").n ≈ 3e12 rtol = 1e-3
+    @test_throws DimensionMismatch GyrotropicGridVDF(v_perp, v_para, F')
+    @test_throws ArgumentError GyrotropicGridVDF(reverse(v_perp), v_para, F)
+    @test_throws DomainError GyrotropicGridVDF(v_perp .- 1, v_para, F)
+    @test PlasmaPopulations.GridVDF === GyrotropicGridVDF
 end
 
 @testset "MaxwellJuttner" begin

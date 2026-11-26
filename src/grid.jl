@@ -1,21 +1,23 @@
 """
-    GridVDF(v_perp, v_para, f)
+    GyrotropicGridVDF(v_perp, v_para, f)
 
 Gyrotropic distribution tabulated as `f[i, j] = f(v_perp[i], v_para[j])` on ascending grids with `v_perp[1] ≥ 0`,
 bilinear between nodes and zero outside them. `f` need not be normalized: field `n = ∫ f d³v` is the number
 density [m⁻³] when `f` is a phase-space density [s³ m⁻⁶].
 """
-struct GridVDF{T, Vperp <: AbstractVector{T}, Vpara <: AbstractVector{T}, F <: AbstractMatrix, N} <: AbstractVDF
+struct GyrotropicGridVDF{T, Vperp <: AbstractVector{T}, Vpara <: AbstractVector{T}, F <: AbstractMatrix, N} <: AbstractVDF
     v_perp::Vperp
     v_para::Vpara
     f::F
     n::N
 end
 
+Base.@deprecate_binding GridVDF GyrotropicGridVDF
+
 # broadcasting, or `convert` of an integer range, would collect ranges
 _si_grid(v) = float(eltype(v) <: Real ? v : si_velocity.(v))
 
-function GridVDF(v_perp, v_para, f)
+function GyrotropicGridVDF(v_perp, v_para, f)
     vperp, vpara = _si_grid(v_perp), _si_grid(v_para)
     T = promote_type(eltype(vperp), eltype(vpara))
     vperp, vpara = convert(AbstractVector{T}, vperp), convert(AbstractVector{T}, vpara)
@@ -23,12 +25,12 @@ function GridVDF(v_perp, v_para, f)
     size(f) == (length(vperp), length(vpara)) ||
         throw(DimensionMismatch("f is $(size(f)), grids are $(length(vperp)) × $(length(vpara))"))
     for v in (vperp, vpara)
-        length(v) ≥ 2 && all(>(0), diff(v)) || throw(ArgumentError("GridVDF needs strictly ascending grids of ≥ 2 nodes"))
+        length(v) ≥ 2 && all(>(0), diff(v)) || throw(ArgumentError("GyrotropicGridVDF needs strictly ascending grids of ≥ 2 nodes"))
     end
-    minimum(vperp) ≥ 0 || throw(DomainError(minimum(vperp), "GridVDF needs v_perp ≥ 0"))
+    minimum(vperp) ≥ 0 || throw(DomainError(minimum(vperp), "GyrotropicGridVDF needs v_perp ≥ 0"))
     n = _integral(vperp, vpara, f, one, one)
-    iszero(n) && throw(ArgumentError("GridVDF needs ∫ f d³v ≠ 0"))
-    return GridVDF(vperp, vpara, f, n)
+    iszero(n) && throw(ArgumentError("GyrotropicGridVDF needs ∫ f d³v ≠ 0"))
+    return GyrotropicGridVDF(vperp, vpara, f, n)
 end
 
 # ∫ gperp(v⊥) gpara(v∥) f d³v over the bilinear interpolant, so that moments and `pdf` describe the same distribution.
@@ -40,7 +42,7 @@ end
 
 # weights on `f`'s device, as a range grid with device `f` (or vice versa) cannot multiply
 _like(f, w) = copyto!(similar(f, eltype(w), length(w)), w)
-_moment(d::GridVDF{T}, gperp, gpara) where {T} = T(_integral(d.v_perp, d.v_para, d.f, gperp, gpara) / d.n)
+_moment(d::GyrotropicGridVDF{T}, gperp, gpara) where {T} = T(_integral(d.v_perp, d.v_para, d.f, gperp, gpara) / d.n)
 
 # w[i] = ∫ φᵢ g dx for the piecewise-linear hats φᵢ on x, by 3-point Gauss–Legendre per interval: exact for g of degree ≤ 4.
 # Whole-array operations only, so that device grids work.
@@ -63,7 +65,7 @@ function _interval_weights(g, a::T, b::T) where {T}
     return l, r
 end
 
-function _pdf(d::GridVDF, _, v_perp, v_para)
+function _pdf(d::GyrotropicGridVDF, _, v_perp, v_para)
     x, y, f = d.v_perp, d.v_para, d.f
     a, b = abs(v_perp), v_para
     R = typeof(zero(eltype(f)) * zero(a) * zero(b) / d.n)
@@ -74,12 +76,12 @@ function _pdf(d::GridVDF, _, v_perp, v_para)
     return R(fv / d.n)
 end
 
-isgyrotropic(::Type{<:GridVDF}) = true
-Statistics.mean(d::GridVDF) = _mean_para(_moment(d, one, identity))
-function vth_perp_para(d::GridVDF)
+isgyrotropic(::Type{<:GyrotropicGridVDF}) = true
+Statistics.mean(d::GyrotropicGridVDF) = _mean_para(_moment(d, one, identity))
+function vth_perp_para(d::GyrotropicGridVDF)
     vd = _moment(d, one, identity)
     return (sqrt(_moment(d, abs2, one)), sqrt(2 * _moment(d, one, u -> (u - vd)^2)))
 end
 
-Base.show(io::IO, d::GridVDF) =
-    print(io, "GridVDF(", length(d.v_perp), " × ", length(d.v_para), " grid, n = ", d.n, ")")
+Base.show(io::IO, d::GyrotropicGridVDF) =
+    print(io, "GyrotropicGridVDF(", length(d.v_perp), " × ", length(d.v_para), " grid, n = ", d.n, ")")

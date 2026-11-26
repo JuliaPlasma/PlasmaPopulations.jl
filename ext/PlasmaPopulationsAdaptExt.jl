@@ -1,8 +1,8 @@
 module PlasmaPopulationsAdaptExt
 
 using Adapt: Adapt
-using PlasmaPopulations: GridVDF
+using PlasmaPopulations: GyrotropicGridVDF
 
-Adapt.@adapt_structure GridVDF
+Adapt.@adapt_structure GyrotropicGridVDF
 
 end
