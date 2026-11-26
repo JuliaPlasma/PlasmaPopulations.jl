@@ -1,0 +1,11 @@
+name: Benchmark
+on:
+  pull_request:
+    paths: ["src/**", "benchmark/**", "Project.toml"]
+  push:
+    branches: [main]
+    paths: ["src/**", "benchmark/**", "Project.toml"]
+jobs:
+  benchmark:
+    uses: JuliaSpacePhysics/actions/.github/workflows/benchmark.yml@main
+    permissions: {actions: write, contents: read}
