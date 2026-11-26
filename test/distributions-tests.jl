@@ -193,6 +193,8 @@ end
     @test all(plasma_beta(plasma) .≈ 2MU0_SI * 5.0e6 * E_SI .* (150, 70) ./ 25.0e-18)
     @test charge_density(plasma) == 0
     @test current_density(plasma) ≈ [0, 0, -5.0e6 * E_SI * 1.0e5]
+    @test current_density(Plasma(plasma.populations...; B0 = [-5, 0, 0]u"nT")) ≈ [5.0e6 * E_SI * 1.0e5, 0, 0]
+    @test current_density(Plasma(plasma.populations...; B0 = (0, 0, 0))) == current_density(plasma)  # no direction: own ẑ
 end
 
 @testset "agyrotropy" begin

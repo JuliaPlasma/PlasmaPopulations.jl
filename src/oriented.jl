@@ -32,6 +32,13 @@ function _field_aligned_basis(B, ::Type{T}) where {T}
     return hcat(SVector(1 - b[1]^2 * k, c, -b[1]), SVector(c, 1 - b[2]^2 * k, -b[2]), b)
 end
 
+function _mean_in_field(d, B)
+    μ = mean(d)
+    (B isa Number || iszero(B) || !isgyrotropic(d)) && return μ
+    b = B * one(float(eltype(μ)))
+    return μ[3] * (b / norm(b))
+end
+
 pdf(o::Oriented) = _PDF(o, pdf(o.vdf))
 (f::_PDF{<:Oriented})(v) = f.c(f.d.basis' * (si_velocity.(SVector{3}(v)) - f.d.u))
 pdf(o::Oriented, v) = pdf(o)(v)

@@ -24,8 +24,8 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 - Bare numbers (including inputs, stored fields and formulary outputs) are assumed in SI and are stored as given, except temperature/energy in eV.
   Unitful inputs are converted to SI at construction.
 - Velocities are momenta per mass `𝐮 = γ𝐯 = 𝐩/m`.
-- `B0` is a magnitude or a 3-vector. Velocities and wavevectors are in the frame with `ẑ` along the field; the models here are gyrotropic about it.
-  `Oriented` places a model in another frame.
+- Bare gyrotropic models use field-aligned velocities. `Oriented` and `CartesianGridVDF` use lab coordinates.
+- A field vector gives the lab-frame parallel axis; a scalar is `|B|` along lab `+ẑ` (sign ignored). Zero field leaves velocities in the model’s own coordinates.
 - Thermal speeds are moments for every model: `vth_perp² = ⟨v⊥²⟩` and `vth_para² = 2⟨(v∥ - vd_para)²⟩`, so `T = m vth²/2`, except `MaxwellJuttner`'s exact `T = θmc²`.
 - Constructors take keywords named after the fields, plus `vth` for `vth_perp = vth_para`.
   `V(particle; kw...)` also accepts `T`, `T_perp`, `T_para` in place of `vth`, `vth_perp`, `vth_para`, for models with those parameters.
@@ -52,7 +52,7 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `CartesianGridVDF(vx, vy, vz, f)` | tabulated `f[i, j, k]`, trilinear and zero outside the grid; field `n = ∫ f d³v` |
 | `Statistics.mean(vdf)`, `Statistics.cov(vdf)` | mean velocity; velocity covariance `⟨(𝐯 - ⟨𝐯⟩)(𝐯 - ⟨𝐯⟩)ᵀ⟩` |
 | `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
-| `isgyrotropic(vdf)` | whether `vdf` supports the gyrotropic `(v_perp, v_para)` interface |
+| `isgyrotropic(vdf)` | whether `vdf` is gyrotropic about its `ẑ`, taken as ∥ 𝐁: `mean` along `ẑ`, `vth_perp_para` defined (`cov` follows), and `pdf(vdf, v_perp, v_para)` where a pointwise PDF exists |
 | `rand([rng,] vdf[, dims])` | samples `[v₁, v₂, v₃]` |
 | `Oriented(vdf[, axis]; u)` | rotate the model’s `ẑ` to `axis` (default: lab `ẑ`), then add lab velocity `u` (default zero) |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |

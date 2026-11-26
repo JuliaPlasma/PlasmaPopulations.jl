@@ -31,7 +31,7 @@ include("oriented.jl")
 include("population.jl")
 
 debye_length(p::Particle, n, T) = sqrt(EPS0_SI * si_energy(T) / (abs(si_number_density(n)) * p.q^2))
-gyrofrequency(p::Particle, 𝐁) = p.q * norm(si_magnetic_field(𝐁)) / p.m
+gyrofrequency(p::Particle, 𝐁) = p.q * norm(_field_si(𝐁)) / p.m
 plasma_frequency(p::Particle, n) = abs(p.q) * sqrt(abs(si_number_density(n)) / (EPS0_SI * p.m))
 thermal_speed(p::Particle, T) = sqrt(2 * si_energy(T) / p.m)
 inertial_length(p::Particle, n) = C_SI / plasma_frequency(p, n)
@@ -57,7 +57,7 @@ end
 
 charge_density(plasma::Plasma) = sum(s -> s.n * s.particle.q, plasma.populations)
 
-current_density(plasma::Plasma) = sum(s -> s.n * s.particle.q * mean(s.vdf), plasma.populations)
+current_density(plasma::Plasma) = sum(s -> s.n * s.particle.q * _mean_in_field(s.vdf, plasma.B0), plasma.populations)
 
 
 end

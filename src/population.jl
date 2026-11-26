@@ -27,7 +27,7 @@ struct Plasma{S, B}
     populations::S
     B0::B
     function Plasma(populations, B0)
-        B0_si = si_magnetic_field(B0)
+        B0_si = _field_si(B0)
         return new{typeof(populations), typeof(B0_si)}(populations, B0_si)
     end
 end
