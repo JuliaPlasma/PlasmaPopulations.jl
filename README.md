@@ -52,7 +52,6 @@ rand(BiMaxwellian(Proton; T_perp = 100u"eV", T_para = 20u"eV"), 1000)   # field-
 | `CartesianGridVDF(vx, vy, vz, f)` | tabulated `f[i, j, k]`, trilinear and zero outside the grid; field `n = ∫ f d³v` |
 | `Statistics.mean(vdf)`, `Statistics.cov(vdf)` | mean velocity; velocity covariance `⟨(𝐯 - ⟨𝐯⟩)(𝐯 - ⟨𝐯⟩)ᵀ⟩` |
 | `vth_perp_para(vdf)` | gyro-average `(vth_perp, vth_para)` about $𝐁$ |
-| `isgyrotropic(vdf)` | whether `vdf` is gyrotropic about its `ẑ`, taken as ∥ 𝐁: `mean` along `ẑ`, `vth_perp_para` defined (`cov` follows), and `pdf(vdf, v_perp, v_para)` where a pointwise PDF exists |
 | `rand([rng,] vdf[, dims])` | samples `[v₁, v₂, v₃]` |
 | `Oriented(vdf[, axis]; u)` | rotate the model’s `ẑ` to `axis` (default: lab `ẑ`), then add lab velocity `u` (default zero) |
 | below | public, not exported: `using PlasmaPopulations: gyrofrequency, …` |

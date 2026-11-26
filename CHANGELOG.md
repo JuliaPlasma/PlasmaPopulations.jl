@@ -4,6 +4,7 @@
 
 ### Changed
 
+- **Breaking**: `isgyrotropic` is public but no longer exported.
 - **Breaking**: with a vector `B0`, `current_density(plasma)` now points bare gyrotropic drifts along the field.
 
 ## [0.2.0] - 2026-11-15
