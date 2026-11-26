@@ -75,3 +75,4 @@ Statistics.mean(o::Oriented) = o.u + o.basis * mean(o.vdf)
 Statistics.cov(o::Oriented) = o.basis * cov(o.vdf) * o.basis'
 
 Random.rand(rng::AbstractRNG, o::Oriented) = o.u + o.basis * rand(rng, o.vdf)
+_sampler(o::Oriented) = Oriented(_sampler(o.vdf), o.basis, o.u)

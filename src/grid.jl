@@ -31,7 +31,8 @@ _grids(d::GyrotropicGridVDF) = (d.v_perp, d.v_para)
 _grids(d::CartesianGridVDF) = (d.vx, d.vy, d.vz)
 
 # d³v as a product of per-axis factors
-_measure(::Type{<:GyrotropicGridVDF}) = (v -> 2 * (π * v), one)
+_measure(::Type{<:GyrotropicGridVDF}) = (_perp_measure, one)
+_perp_measure(v) = 2 * (π * v)
 _measure(::Type{<:CartesianGridVDF}) = (one, one, one)
 
 # broadcasting, or `convert` of an integer range, would collect ranges
@@ -168,5 +169,65 @@ function Statistics.cov(d::CartesianGridVDF)
         M[2, 1, 2], M[1, 2, 2], M[1, 1, 3],
     ) - δ * δ'
 end
+
+# Draws from the multilinear interpolant f(𝐱) ∏ₖ mₖ(xₖ) = Σₙ f[n] ∏ₖ φₙₖ(xₖ) mₖ(xₖ), with φₙₖ the hat of node nₖ and mₖ the
+# measure: a mixture over nodes n of weight f[n] ∏ₖ ∫ φₙₖ mₖ, each a product of 1-D densities φₙₖ mₖ, of which a draw picks
+# the left or right half by its integral. Tables on the host, as draws are scalar.
+struct _GridSampler{D, G, W, C}
+    d::D
+    grids::G
+    w::W  # integrals of the two hats on each axis interval
+    cdf::C
+end
+
+# (∫ φᵢ m) over the intervals left and right of node i
+_halves(w, i) = (i > 1 ? w[i - 1][2] : zero(w[1][2]), i ≤ length(w) ? w[i][1] : zero(w[1][1]))
+
+function _sampler(d::_GridVDF)
+    T = promote_type(Float64, typeof(d.n))
+    grids, f = map(x -> convert(Array, x), _grids(d)), convert(Array, d.f)
+    all(≥(0), f) || throw(DomainError(minimum(f), "rand needs f ≥ 0"))
+    # Each factor scaled to a maximum of 1, as products of SI-sized ones can underflow or overflow.
+    w = map(_measure(typeof(d)), grids) do m, x
+        wₖ = _interval_weights.(m, T.(@view x[1:(end - 1)]), T.(@view x[2:end]))
+        s = maximum(t -> max(t...), wₖ)
+        map(t -> t ./ s, wₖ)
+    end
+    W = T.(f) ./ T(maximum(f))
+    for (k, wₖ) in enumerate(w)
+        H = sum.(_halves.(Ref(wₖ), 1:(length(wₖ) + 1)))
+        W .*= reshape(H, ntuple(j -> j == k ? length(H) : 1, ndims(W)))
+    end
+    return _GridSampler(d, grids, w, cumsum(vec(W)))
+end
+
+Random.rand(rng::AbstractRNG, d::_GridVDF) = rand(rng, _sampler(d))
+
+function Random.rand(rng::AbstractRNG, s::_GridSampler)
+    (; grids, w, cdf) = s
+    # first node of cdf > u, skipping empty nodes
+    n = CartesianIndices(map(length, grids))[min(searchsortedlast(cdf, rand(rng) * cdf[end]) + 1, length(cdf))]
+    x = map(_measure(typeof(s.d)), grids, w, Tuple(n)) do m, g, wₖ, i
+        l, r = _halves(wₖ, i)
+        rand(rng) * (l + r) < l ? _draw_axis(rng, m, g[i - 1], g[i], true) : _draw_axis(rng, m, g[i], g[i + 1], false)
+    end
+    return _assemble(rng, s.d, x)
+end
+
+# x ∈ [a, b] of density ∝ φ(x) m(x), φ the hat of the right node, or the left one
+function _draw_axis(rng, ::typeof(one), a::T, b::T, right) where {T}
+    t = sqrt(rand(rng, T))
+    return right ? a + (b - a) * t : b - (b - a) * t
+end
+# rejection from the hat alone, accepting ≥ 1/3 since 0 ≤ a < b
+function _draw_axis(rng, ::typeof(_perp_measure), a::T, b::T, right) where {T}
+    while true
+        x = _draw_axis(rng, one, a, b, right)
+        rand(rng, T) * b ≤ x && return x
+    end
+end
+
+_assemble(rng, ::GyrotropicGridVDF, (v_perp, v_para)) = _with_gyrophase(rng, v_perp, v_para, typeof(v_perp))
+_assemble(_, ::CartesianGridVDF, x) = SVector(x)
 
 Base.show(io::IO, d::_GridVDF) = print(io, nameof(typeof(d)), "(", join(size(d.f), " × "), " grid, n = ", d.n, ")")

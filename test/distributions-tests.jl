@@ -295,6 +295,31 @@ end
     @test_throws ArgumentError CartesianGridVDF(unit_axis, unit_axis, unit_axis, fill(Inf, 2, 2, 2))
 end
 
+@testset "Grid VDF samples follow the interpolant" begin
+    rng = Xoshiro(1)
+    # coarse nonuniform grids, so that the interpolant differs from any smooth f
+    xs, ys, zs = [-1.0, 0.5, 2.0], [0.0, 1.0], [-0.5, 0.3, 1.0]
+    c = CartesianGridVDF(xs, ys, zs, [exp(a * (2b - 1)) * (c > 0 ? 4 : 1) for a in xs, b in ys, c in zs])
+    vs = rand(rng, c, 400_000)
+    @test all(v -> xs[1] ≤ v[1] ≤ xs[end] && ys[1] ≤ v[2] ≤ ys[end] && zs[1] ≤ v[3] ≤ zs[end], vs)
+    @test mean(vs) ≈ mean(c) atol = 5e-3
+    @test cov(reduce(hcat, vs); dims = 2) ≈ cov(c) rtol = 1e-2
+    g = GyrotropicGridVDF([0.0, 0.5, 2.0], [-1.0, 1.0], [3.0 1.0; 0.5 2.0; 2.0 0.0])
+    vs = rand(rng, g, 400_000)
+    # f is linear in v∥ between its only nodes ±1, so the trapezoid is the exact v∥ integral. A nested quadgk instead
+    # takes minutes to infer on Julia 1.13.
+    P(a, b) = quadgk(v -> 2π * v * (b + 1) * (pdf(g, v, -1) + pdf(g, v, b)) / 2, 0, a)[1]
+    for (a, b) in ((0.3, 1.0), (1.0, 0.0))
+        @test mean(v -> hypot(v[1], v[2]) < a && v[3] < b, vs) ≈ P(a, b) atol = 3e-3
+    end
+    gd = GyrotropicGridVDF(JLArray(g.v_perp), JLArray(g.v_para), JLArray(g.f))
+    @test rand(Xoshiro(2), gd, 3) == rand(Xoshiro(2), g, 3)
+    @test eltype(rand(CartesianGridVDF(Float32.(xs), Float32.(ys), Float32.(zs), Float32.(c.f)))) === Float32
+    uniform(f) = CartesianGridVDF(0:2.0, 0:2.0, 0:2.0, fill(f, 3, 3, 3))
+    @test rand(Xoshiro(2), uniform(nextfloat(0.0)), 16) == rand(Xoshiro(2), uniform(1.0), 16)
+    @test_throws DomainError rand(GyrotropicGridVDF([0.0, 1.0], [0.0, 1.0], [1.0 -1.0; 1.0 1.0]))
+end
+
 @testset "MaxwellJuttner" begin
     c = PlasmaPopulations.C_SI
     radial(d, g) = quadgk(u -> 4π * u^2 * g(u) * pdf(d, u, 0.0), 0, Inf; rtol = 1e-10)[1]
