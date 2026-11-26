@@ -10,7 +10,7 @@ import Statistics
 using Statistics: mean, cov
 
 export Particle, Electron, Positron, Proton
-export AbstractVDF, BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, DoryGuestHarris, SubtractedMaxwellian, Cold, MaxwellJuttner, GyrotropicGridVDF, vth_perp_para, isgyrotropic
+export AbstractVDF, BiMaxwellian, GaussianRing, BiKappa, ProductBiKappa, DoryGuestHarris, SubtractedMaxwellian, Cold, MaxwellJuttner, GyrotropicGridVDF, CartesianGridVDF, vth_perp_para, isgyrotropic
 export Population, Plasma
 export Oriented
 
