@@ -55,7 +55,9 @@ function _with_gyrophase(rng, v_perp, v_para, T)
     return SVector(v_perp * cosφ, v_perp * sinφ, v_para)
 end
 
-Random.rand(rng::AbstractRNG, d::AbstractVDF, dims::Dims) = [rand(rng, d) for _ in CartesianIndices(dims)]
+# state reused across draws, such as tables
+_sampler(d) = d
+Random.rand(rng::AbstractRNG, d::AbstractVDF, dims::Dims) = (s = _sampler(d); [rand(rng, s) for _ in CartesianIndices(dims)])
 
 """
     BiMaxwellian(; vth, vd_para = 0)
