@@ -78,6 +78,7 @@ end
     @test norm(R' * R - I) < 1.0f-6  # no cancellation near -ẑ
     o = Oriented(d; u)
     @test pdf(o, [0.3, -1.1, 0.7] + u) ≈ pdf(d, [0.3, -1.1, 0.7])
+    @test mean(Oriented(d)) == mean(d)
 end
 
 @testset "B0 is a magnitude or a vector" begin

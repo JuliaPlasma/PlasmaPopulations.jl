@@ -14,7 +14,7 @@ end
 # false: Bool is the weakest promoting Number, so the model's float type wins.
 Oriented(d, axis; u = SVector(false, false, false)) =
     Oriented(d, _field_aligned_basis(SVector{3}(axis), float(eltype(mean(d)))), si_velocity.(SVector{3}(u)))
-Oriented(d; u) = Oriented(d, I, si_velocity.(SVector{3}(u)))
+Oriented(d; u = SVector(false, false, false)) = Oriented(d, I, si_velocity.(SVector{3}(u)))
 
 # Columns (e⊥₁, e⊥₂, b̂) of the shortest rotation ẑ → b̂: R = I + [ẑ × b̂]× + [ẑ × b̂]×² / (1 + b₃).
 # For b₃ < 0, 1 + b₃ = ρ²/(|B|(|B| - B₃)) avoids the cancellation that would cost eps/(1 + b₃).
