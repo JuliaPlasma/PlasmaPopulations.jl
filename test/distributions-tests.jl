@@ -68,6 +68,14 @@ end
     @test eltype(rand(Oriented(BiMaxwellian(; vth = 1.0f0), Float32[0, 0, 1]))) === Float32
     @test pdf(Oriented(BiMaxwellian(; vth = 1.0f0), (1, 0, 0)), (0.1f0, 0.2f0, 0.3f0)) isa Float32
     @test_throws ArgumentError Oriented(d, (0, 0, 0))
+    # A transverse drift tells rotations about the axis apart: ẑ → x̂ is about ŷ on both sides of the equator.
+    drifting = Oriented(Cold(); u = (1, 2, 3))
+    for z in (1.0e-9, -0.0, -1.0e-9)
+        @test mean(Oriented(drifting, (1, 0, z))) ≈ [3, 2, -1]
+    end
+    @test mean(Oriented(drifting, (0, 0, -1))) ≈ [1, -2, -3]
+    R = Oriented(BiMaxwellian(; vth = 1.0f0), Float32[1.0e-3, 2.0e-3, -1]).basis
+    @test norm(R' * R - I) < 1.0f-6  # no cancellation near -ẑ
     o = Oriented(d; u)
     @test pdf(o, [0.3, -1.1, 0.7] + u) ≈ pdf(d, [0.3, -1.1, 0.7])
 end

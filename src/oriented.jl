@@ -3,6 +3,7 @@
     Oriented(d; u)
 
 Field-aligned model `d` placed in the frame of magnetic field `B` and bulk velocity `u`.
+The model's axes take the shortest rotation from `ẑ` to `B` (π about `x̂` if `B ∥ -ẑ`).
 """
 struct Oriented{D, R, U} <: AbstractVDF
     vdf::D
@@ -15,16 +16,20 @@ Oriented(d, B; u = SVector(false, false, false)) =
     Oriented(d, _field_aligned_basis(SVector{3}(B), float(eltype(mean(d)))), si_velocity.(SVector{3}(u)))
 Oriented(d; u) = Oriented(d, I, si_velocity.(SVector{3}(u)))
 
-# Columns (e⊥₁, e⊥₂, b̂), by Duff et al. (2017): a rotation of ẑ alone is singular at b̂ = -ẑ.
+# Columns (e⊥₁, e⊥₂, b̂) of the shortest rotation ẑ → b̂: R = I + [ẑ × b̂]× + [ẑ × b̂]×² / (1 + b₃).
+# For b₃ < 0, 1 + b₃ = ρ²/(|B|(|B| - B₃)) avoids the cancellation that would cost eps/(1 + b₃).
 # `* one(T)` promotes so integer B takes the model's float type T
 function _field_aligned_basis(B, ::Type{T}) where {T}
     iszero(B) && throw(ArgumentError("B = $B has no direction"))
     B = B * one(T)
-    b = B / norm(B)
-    s = copysign(one(b[3]), b[3])
-    a = -1 / (s + b[3])
-    c = b[1] * b[2] * a
-    return hcat(SVector(1 + s * b[1]^2 * a, s * c, -s * b[1]), SVector(c, s + b[2]^2 * a, -b[2]), b)
+    n = norm(B)
+    b = B / n
+    ρ² = B[1]^2 + B[2]^2
+    o, z = one(n), zero(n)
+    b[3] < 0 && iszero(ρ²) && return hcat(SVector(o, z, z), SVector(z, -o, z), b)
+    k = b[3] < 0 ? n * (n - B[3]) / ρ² : 1 / (1 + b[3])
+    c = -b[1] * b[2] * k
+    return hcat(SVector(1 - b[1]^2 * k, c, -b[1]), SVector(c, 1 - b[2]^2 * k, -b[2]), b)
 end
 
 pdf(o::Oriented) = _PDF(o, pdf(o.vdf))
