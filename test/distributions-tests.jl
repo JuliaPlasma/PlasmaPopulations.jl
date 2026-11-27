@@ -1,23 +1,24 @@
 using PlasmaPopulations, Test
 using JLArrays, LinearAlgebra, QuadGK, Random, SpecialFunctions, Statistics, Unitful
-using PlasmaPopulations: pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed,
+using PlasmaPopulations: SVector, pdf, alfven_speed, gyrofrequency, debye_length, kappa_widths, mass_density, plasma_frequency, thermal_speed,
     temperature_perp_para, plasma_beta, agyrotropy, charge_density, current_density, E_SI, MU0_SI
 
+# ∫ (1, w, v⊥², w²) f d³v over v⊥ < vmax_perp and w = v∥ - u ∈ (w_lo, w_hi). 
+function box_moments(d, vmax_perp, (w_lo, w_hi); u = d.vd_para)
+    box = Ref{Any}(d) # boxed so that nested quadgk compiles once
+    g(a, b) = pdf(box[], a, b + u)::Float64 * SVector(1, b, a^2, b^2)
+    return quadgk(a -> 2π * a * quadgk(b -> g(a, b), w_lo, 0.0, w_hi; rtol = 1e-8)[1], 0.0, vmax_perp; rtol = 1e-8)[1]
+end
+
 @testset "Moments of pdf" begin
-    # ∫ f d³v = 1, ⟨v∥⟩ = vd_para, ⟨v⊥²⟩ = vth⊥², ⟨(v∥-vd_para)²⟩ = vth∥²/2
-    function moments(d; vmax)
-        I(g) = quadgk(v_perp -> 2π * v_perp * quadgk(v_para -> g(v_perp, v_para) * pdf(d, v_perp, v_para), -vmax, vmax; rtol = 1e-10)[1], 0, vmax; rtol = 1e-10)[1]
-        # ⟨v∥⟩ is shifted by 1 because quadgk's rtol cannot converge on a zero integral.
-        return I((a, b) -> 1), I((a, b) -> b + 1) - 1, I((a, b) -> a^2), I((a, b) -> (b - d.vd_para)^2)
-    end
     vth = (vth_perp = 1.3, vth_para = 0.7)
     for d in (GaussianRing(; vr_perp = 2.0, w_perp = 1.3, vth_para = 0.7, vd_para = 0.4), BiMaxwellian(; vth..., vd_para = 0.4), BiKappa(; vth..., kappa = 6.0, vd_para = -0.2), ProductBiKappa(; vth..., kappa_perp = 5.0, kappa_para = 4.0, vd_para = 0.1),
             ProductBiKappa(; vth..., kappa_perp = 5.0, kappa_para = 4.0, loss_cone = 1.5),
             DoryGuestHarris(; vth..., loss_cone = 1.5, vd_para = 0.4), SubtractedMaxwellian(; vth..., delta = 0.3, beta = 0.4, vd_para = 0.4))
-        n, vpara, vperp2, vpara2 = moments(d; vmax = d isa Union{BiKappa, ProductBiKappa} ? 400.0 : 15.0)
+        n, w, vperp2, vpara2 = box_moments(d, Inf, (-Inf, Inf))
         vth_perp, vth_para = vth_perp_para(d)
         @test n ≈ 1 rtol = 1e-6
-        @test vpara ≈ mean(d)[3] atol = 1e-3
+        @test d.vd_para + w ≈ mean(d)[3] atol = 1e-3
         @test vperp2 ≈ vth_perp^2 rtol = 1e-3
         @test vpara2 ≈ vth_para^2 / 2 rtol = 1e-3
         @test pdf(d, -0.8, 0.3) == pdf(d, 0.8, 0.3)
@@ -141,7 +142,7 @@ end
         @test mean(vs) ≈ mean(d) atol = 5 * hypot(vperp0, vpara0) / sqrt(length(vs))
         # Joint probability: the coupled models' ⊥ and ∥ are dependent, so marginals would not see it.
         for (a, b) in ((0.7, 0.5), (1.2, 1.5))
-            P = quadgk(v -> 2π * v * quadgk(u -> pdf(d, v, u), d.vd_para - b * vpara0, d.vd_para + b * vpara0)[1], 0, a * vperp0)[1]
+            P = box_moments(d, a * vperp0, (-b * vpara0, b * vpara0))[1]
             @test mean(v -> hypot(v[1], v[2]) < a * vperp0 && abs(v[3] - d.vd_para) < b * vpara0, vs) ≈ P atol = 0.005
         end
     end
@@ -306,11 +307,8 @@ end
     @test cov(reduce(hcat, vs); dims = 2) ≈ cov(c) rtol = 1e-2
     g = GyrotropicGridVDF([0.0, 0.5, 2.0], [-1.0, 1.0], [3.0 1.0; 0.5 2.0; 2.0 0.0])
     vs = rand(rng, g, 400_000)
-    # f is linear in v∥ between its only nodes ±1, so the trapezoid is the exact v∥ integral. A nested quadgk instead
-    # takes minutes to infer on Julia 1.13.
-    P(a, b) = quadgk(v -> 2π * v * (b + 1) * (pdf(g, v, -1) + pdf(g, v, b)) / 2, 0, a)[1]
     for (a, b) in ((0.3, 1.0), (1.0, 0.0))
-        @test mean(v -> hypot(v[1], v[2]) < a && v[3] < b, vs) ≈ P(a, b) atol = 3e-3
+        @test mean(v -> hypot(v[1], v[2]) < a && v[3] < b, vs) ≈ box_moments(g, a, (-1.0, b); u = 0.0)[1] atol = 3e-3
     end
     gd = GyrotropicGridVDF(JLArray(g.v_perp), JLArray(g.v_para), JLArray(g.f))
     @test rand(Xoshiro(2), gd, 3) == rand(Xoshiro(2), g, 3)
