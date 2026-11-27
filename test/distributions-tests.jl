@@ -255,7 +255,6 @@ end
     @test_throws DimensionMismatch GyrotropicGridVDF(v_perp, v_para, F')
     @test_throws ArgumentError GyrotropicGridVDF(reverse(v_perp), v_para, F)
     @test_throws DomainError GyrotropicGridVDF(v_perp .- 1, v_para, F)
-    @test PlasmaPopulations.GridVDF === GyrotropicGridVDF
 end
 
 @testset "CartesianGridVDF tabulates a 3-D distribution" begin

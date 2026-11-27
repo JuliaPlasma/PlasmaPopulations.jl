@@ -45,7 +45,8 @@ function _si_grids(f, grids...)
     size(f) == map(length, grids) ||
         throw(DimensionMismatch("f is $(size(f)), grids are $(join(map(length, grids), " × "))"))
     for x in grids
-        length(x) ≥ 2 && all(>(0), diff(x)) || throw(ArgumentError("grid VDFs need strictly ascending grids of ≥ 2 nodes"))
+        h = convert(Array, x)  # grids are short: on the device, kernel compile and launch would dwarf the work
+        length(h) ≥ 2 && all(i -> h[i] < h[i + 1], 1:(length(h) - 1)) || throw(ArgumentError("grid VDFs need strictly ascending grids of ≥ 2 nodes"))
     end
     return grids
 end
@@ -60,7 +61,8 @@ end
 function GyrotropicGridVDF(v_perp, v_para, f)
     f = si_phase_space_density(f)
     grids = _si_grids(f, v_perp, v_para)
-    minimum(grids[1]) ≥ 0 || throw(DomainError(minimum(grids[1]), "GyrotropicGridVDF needs v_perp ≥ 0"))
+    v0 = first(convert(Array, grids[1]))  # the minimum, as the grid ascends
+    v0 ≥ 0 || throw(DomainError(v0, "GyrotropicGridVDF needs v_perp ≥ 0"))
     return GyrotropicGridVDF(grids..., f, _density(GyrotropicGridVDF, grids, f))
 end
 
