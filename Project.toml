@@ -1,7 +1,7 @@
 name = "PlasmaPopulations"
 uuid = "19fe0aba-210f-40e6-8711-72208e0968be"
 authors = ["Zijin Zhang <zijin@ucla.edu>"]
-version = "0.2.2"
+version = "0.3.0"
 
 [workspace]
 projects = ["test"]
